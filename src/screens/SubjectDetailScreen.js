@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -6,104 +6,13 @@ import {
   ScrollView, 
   TouchableOpacity, 
   FlatList,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
-
-// Helper to define subject-specific resource content dynamically
-const getSubjectResources = (subjectName) => {
-  const defaultResources = {
-    complete: [
-      { id: 'c1', title: `Complete ${subjectName} Notes`, subtitle: 'Full Semester Notes', icon: 'document-text', iconColor: '#2563EB', bgColor: '#EFF6FF' },
-      { id: 'c2', title: 'Important Notes', subtitle: 'Most Exam-Relevant Topics', icon: 'star', iconColor: '#F59E0B', bgColor: '#FEF3C7' },
-      { id: 'c3', title: 'Formula Sheet', subtitle: 'Quick Revision Material', icon: 'flash', iconColor: '#10B981', bgColor: '#D1FAE5' },
-    ],
-    units: [
-      { id: 'u1', title: 'Unit 1 Notes', subtitle: 'Introduction & Foundations', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      { id: 'u2', title: 'Unit 2 Notes', subtitle: 'Core Concepts & Theories', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      { id: 'u3', title: 'Unit 3 Notes', subtitle: 'Advanced Applications', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      { id: 'u4', title: 'Unit 4 Notes', subtitle: 'Practical Integration', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      { id: 'u5', title: 'Unit 5 Notes', subtitle: 'Review & Case Studies', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-    ]
-  };
-
-  const subjectData = {
-    'Physics': {
-      complete: [
-        { id: 'c1', title: 'Complete Physics Notes', subtitle: 'Full Semester Notes', icon: 'document-text', iconColor: '#2563EB', bgColor: '#EFF6FF' },
-        { id: 'c2', title: 'Important Notes', subtitle: 'Most Exam-Relevant Topics', icon: 'star', iconColor: '#F59E0B', bgColor: '#FEF3C7' },
-        { id: 'c3', title: 'Formula Sheet', subtitle: 'Quick Revision Material', icon: 'flash', iconColor: '#10B981', bgColor: '#D1FAE5' },
-      ],
-      units: [
-        { id: 'u1', title: 'Unit 1 Notes', subtitle: 'Units and Measurements', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u2', title: 'Unit 2 Notes', subtitle: 'Kinematics', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u3', title: 'Unit 3 Notes', subtitle: 'Laws of Motion', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u4', title: 'Unit 4 Notes', subtitle: 'Work, Power and Energy', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u5', title: 'Unit 5 Notes', subtitle: 'Rotational Motion', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      ]
-    },
-    'Mathematics': {
-      complete: [
-        { id: 'c1', title: 'Complete Mathematics Notes', subtitle: 'Full Semester Notes', icon: 'document-text', iconColor: '#2563EB', bgColor: '#EFF6FF' },
-        { id: 'c2', title: 'Important Formula Book', subtitle: 'All Semester Formulas', icon: 'star', iconColor: '#F59E0B', bgColor: '#FEF3C7' },
-        { id: 'c3', title: 'Syllabus & Blueprint', subtitle: 'Exam Weightage & Topics', icon: 'flash', iconColor: '#10B981', bgColor: '#D1FAE5' },
-      ],
-      units: [
-        { id: 'u1', title: 'Unit 1 Notes', subtitle: 'Matrices & Linear Algebra', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u2', title: 'Unit 2 Notes', subtitle: 'Differential Calculus', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u3', title: 'Unit 3 Notes', subtitle: 'Integral Calculus', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u4', title: 'Unit 4 Notes', subtitle: 'Numerical Methods', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u5', title: 'Unit 5 Notes', subtitle: 'Probability & Statistics', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      ]
-    },
-    'Programming in C': {
-      complete: [
-        { id: 'c1', title: 'Complete C Programming Notes', subtitle: 'Full Semester Notes', icon: 'document-text', iconColor: '#2563EB', bgColor: '#EFF6FF' },
-        { id: 'c2', title: 'Lab Manual & Code Files', subtitle: 'Solved Program Exercises', icon: 'star', iconColor: '#F59E0B', bgColor: '#FEF3C7' },
-        { id: 'c3', title: 'C Quick Cheatsheet', subtitle: 'Syntax & Standard Functions', icon: 'flash', iconColor: '#10B981', bgColor: '#D1FAE5' },
-      ],
-      units: [
-        { id: 'u1', title: 'Unit 1 Notes', subtitle: 'Introduction & Basic Datatypes', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u2', title: 'Unit 2 Notes', subtitle: 'Control Statements & Loops', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u3', title: 'Unit 3 Notes', subtitle: 'Arrays and Functions', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u4', title: 'Unit 4 Notes', subtitle: 'Pointers & Memory Allocation', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u5', title: 'Unit 5 Notes', subtitle: 'Structures, Unions & Files', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      ]
-    },
-    'Electrical Engineering': {
-      complete: [
-        { id: 'c1', title: 'Complete Electrical Notes', subtitle: 'Full Semester Notes', icon: 'document-text', iconColor: '#2563EB', bgColor: '#EFF6FF' },
-        { id: 'c2', title: 'Solved Numerical Problems', subtitle: 'Step-by-step math guide', icon: 'star', iconColor: '#F59E0B', bgColor: '#FEF3C7' },
-        { id: 'c3', title: 'Lab Experiments Booklet', subtitle: 'Diagrams & Readings', icon: 'flash', iconColor: '#10B981', bgColor: '#D1FAE5' },
-      ],
-      units: [
-        { id: 'u1', title: 'Unit 1 Notes', subtitle: 'DC Circuits & Theorems', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u2', title: 'Unit 2 Notes', subtitle: 'AC Fundamentals', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u3', title: 'Unit 3 Notes', subtitle: 'Transformers', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u4', title: 'Unit 4 Notes', subtitle: 'Electrical Machines', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u5', title: 'Unit 5 Notes', subtitle: 'Basic Semiconductor Devices', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      ]
-    },
-    'Communication Skills': {
-      complete: [
-        { id: 'c1', title: 'Complete Communication Notes', subtitle: 'Full Semester Notes', icon: 'document-text', iconColor: '#2563EB', bgColor: '#EFF6FF' },
-        { id: 'c2', title: 'Grammar & Vocabulary Guide', subtitle: 'Essential Rules & Words', icon: 'star', iconColor: '#F59E0B', bgColor: '#FEF3C7' },
-        { id: 'c3', title: 'Professional Writing PPTs', subtitle: 'Emails, Letters & Reports', icon: 'flash', iconColor: '#10B981', bgColor: '#D1FAE5' },
-      ],
-      units: [
-        { id: 'u1', title: 'Unit 1 Notes', subtitle: 'Basics of Communication', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u2', title: 'Unit 2 Notes', subtitle: 'Vocabulary & Sentence Building', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u3', title: 'Unit 3 Notes', subtitle: 'Reading & Writing Skills', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u4', title: 'Unit 4 Notes', subtitle: 'Verbal & Non-Verbal Skills', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-        { id: 'u5', title: 'Unit 5 Notes', subtitle: 'Professional Correspondence', icon: 'document-text', iconColor: '#8B5CF6', bgColor: '#F5F3FF' },
-      ]
-    }
-  };
-
-  return subjectData[subjectName] || defaultResources;
-};
+import { getResources } from '../services/supabase';
 
 const tabs = [
   { id: 'notes', label: 'Notes', icon: 'document-text-outline' },
@@ -129,8 +38,38 @@ export default function SubjectDetailScreen({ route, navigation }) {
   const [activeTab, setActiveTab] = useState('notes');
   const [downloadedItems, setDownloadedItems] = useState({});
   const [downloadingItems, setDownloadingItems] = useState({});
+  
+  const [resources, setResources] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const resources = getSubjectResources(subject.title);
+  useEffect(() => {
+    loadResources();
+  }, [subject]);
+
+  const loadResources = async () => {
+    try {
+      setLoading(true);
+      if (subject?.id) {
+        const data = await getResources(subject.id);
+        const mappedData = (data || []).map(r => ({
+           ...r,
+           type: r.type ? r.type.toLowerCase() : 'notes',
+           title: r.title,
+           subtitle: r.description || 'Study Material',
+           icon: r.icon_name || 'document-text',
+           iconColor: '#2563EB',
+           bgColor: '#EFF6FF',
+        }));
+        setResources(mappedData);
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredResources = resources.filter(res => res.type === activeTab);
 
   const handleShare = () => {
     Alert.alert('Share Subject', `Share resources for ${subject.title} with your classmates.`);
@@ -253,7 +192,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
             <View style={styles.metaRow}>
               <View style={styles.metaCapsule}>
                 <Ionicons name="document-text-outline" size={14} color="#FFFFFF" style={styles.metaIcon} />
-                <Text style={styles.metaText}>8 Notes Available</Text>
+                <Text style={styles.metaText}>{resources.length} Items Available</Text>
               </View>
               <View style={styles.metaCapsule}>
                 <Ionicons name="time-outline" size={14} color="#FFFFFF" style={styles.metaIcon} />
@@ -300,25 +239,22 @@ export default function SubjectDetailScreen({ route, navigation }) {
         </View>
 
         {/* Conditional Content Section */}
-        {activeTab === 'notes' ? (
+        {loading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 }}>
+            <ActivityIndicator size="large" color="#FF6B00" />
+          </View>
+        ) : filteredResources.length > 0 ? (
           <View style={styles.notesSection}>
-            {/* Complete Resources */}
-            <Text style={styles.sectionHeader}>Complete Resources</Text>
+            <Text style={styles.sectionHeader}>{tabs.find(t => t.id === activeTab)?.label} Resources</Text>
             <View style={styles.resourceList}>
-              {resources.complete.map(renderResourceCard)}
-            </View>
-
-            {/* Unit Wise Notes */}
-            <Text style={styles.sectionHeader}>Unit Wise Notes</Text>
-            <View style={styles.resourceList}>
-              {resources.units.map(renderResourceCard)}
+              {filteredResources.map(renderResourceCard)}
             </View>
           </View>
         ) : (
           <View style={styles.emptyTabContainer}>
             <Ionicons name="folder-open-outline" size={64} color="#94A3B8" />
-            <Text style={styles.emptyTabText}>{activeTab.toUpperCase()} Category Coming Soon</Text>
-            <Text style={styles.emptyTabSubtext}>We are currently aggregating premium resources for this subject.</Text>
+            <Text style={styles.emptyTabText}>No {tabs.find(t => t.id === activeTab)?.label} Available Yet</Text>
+            <Text style={{ color: '#9CA3AF', marginTop: 8 }}>Check back later or explore other tabs.</Text>
           </View>
         )}
 

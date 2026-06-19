@@ -1,8 +1,11 @@
-import React from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, Image, TouchableOpacity, FlatList, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ScrollView, TextInput, Image, TouchableOpacity, FlatList, Dimensions, ActivityIndicator, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIsFocused } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
+import { getBanners, getSubjects } from '../services/supabase';
 
 // Components
 import QuickAccessCard from '../components/QuickAccessCard';
@@ -40,6 +43,50 @@ const SectionHeader = ({ title, showViewAll = false }) => (
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  
+  const [branchName, setBranchName] = useState('');
+  const [semesterNum, setSemesterNum] = useState('');
+  const [banners, setBanners] = useState([]);
+  const [mySubjects, setMySubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isFocused) {
+      loadHomeData();
+    }
+  }, [isFocused]);
+
+  const loadHomeData = async () => {
+    try {
+      setLoading(true);
+      const bId = await AsyncStorage.getItem('userBranchId');
+      const sId = await AsyncStorage.getItem('userSemesterId');
+      const bName = await AsyncStorage.getItem('userBranchName');
+      const sNum = await AsyncStorage.getItem('userSemesterNumber');
+      
+      if (bName) setBranchName(bName);
+      if (sNum) setSemesterNum(sNum);
+
+      const [bannersData, subjectsData] = await Promise.all([
+        getBanners(),
+        (bId && sId) ? getSubjects(bId, sId) : Promise.resolve([])
+      ]);
+
+      setBanners(bannersData || []);
+      setMySubjects(subjectsData || []);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBannerPress = (url) => {
+    if (url) {
+      Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -66,9 +113,9 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.greetingSection}>
           <Text style={styles.greetingText}>Hello Manav 👋</Text>
           <View style={styles.subGreetingContainer}>
-            <Text style={styles.subGreetingText}>B.Tech CSE</Text>
+            <Text style={styles.subGreetingText}>{branchName ? `B.Tech ${branchName}` : 'No Branch Selected'}</Text>
             <View style={styles.dotSeparator} />
-            <Text style={styles.subGreetingText}>Semester 1</Text>
+            <Text style={styles.subGreetingText}>{semesterNum ? `Semester ${semesterNum}` : 'No Semester'}</Text>
           </View>
         </View>
 
@@ -85,22 +132,46 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Hero Banner */}
-        <View style={styles.bannerContainer}>
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>Semester Exam{"\n"}Preparation</Text>
-            <Text style={styles.bannerSubtitle}>Access Notes, PYQs, Syllabus{"\n"}and Important Questions</Text>
-            <TouchableOpacity style={styles.bannerButton}>
-              <Text style={styles.bannerButtonText}>Explore Resources <Ionicons name="arrow-forward" size={14} /></Text>
-            </TouchableOpacity>
+        {/* Dynamic Banners */}
+        {banners.length > 0 ? (
+          <FlatList
+            data={banners}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                style={[styles.bannerContainer, { width: width - 32 }]}
+                activeOpacity={0.9}
+                onPress={() => handleBannerPress(item.button_url)}
+              >
+                {item.image_url ? (
+                  <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} />
+                ) : null}
+                <View style={styles.bannerContent}>
+                  <Text style={styles.bannerTitle}>{item.title}</Text>
+                  <Text style={styles.bannerSubtitle}>{item.subtitle}</Text>
+                  {item.button_text && (
+                    <View style={styles.bannerButton}>
+                      <Text style={styles.bannerButtonText}>{item.button_text} <Ionicons name="arrow-forward" size={14} /></Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        ) : (
+          <View style={[styles.bannerContainer, { width: width - 32 }]}>
+            <View style={styles.bannerContent}>
+              <Text style={styles.bannerTitle}>Semester Exam{"\n"}Preparation</Text>
+              <Text style={styles.bannerSubtitle}>Access Notes, PYQs, Syllabus{"\n"}and Important Questions</Text>
+              <TouchableOpacity style={styles.bannerButton}>
+                <Text style={styles.bannerButtonText}>Explore Resources <Ionicons name="arrow-forward" size={14} /></Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.paginationDots}>
-            <View style={[styles.dot, styles.activeDot]} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-          </View>
-        </View>
+        )}
 
         {/* Quick Study Access */}
         <SectionHeader title="Quick Study Access" />
@@ -120,20 +191,26 @@ export default function HomeScreen({ navigation }) {
 
         {/* Semester Subjects */}
         <SectionHeader title="Semester Subjects" showViewAll />
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={subjects}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <SubjectCard 
-              title={item.title} 
-              iconName={item.icon} 
-              iconColor={item.color}
-            />
-          )}
-          contentContainerStyle={styles.listPadding}
-        />
+        {loading ? (
+          <ActivityIndicator size="small" color="#FF6B00" style={{ marginVertical: 20 }} />
+        ) : (
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={mySubjects.length > 0 ? mySubjects : subjects} // fallback to dummy data
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => navigation.navigate('SubjectDetail', { subject: item })}>
+                <SubjectCard 
+                  title={item.title || item.name} 
+                  iconName={item.icon || item.icon_name || 'book-outline'} 
+                  iconColor={item.color || item.theme_color || '#8B5CF6'}
+                />
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.listPadding}
+          />
+        )}
 
         {/* Recent Study Material */}
         <SectionHeader title="Recent Study Material" />

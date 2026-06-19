@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIsFocused } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +38,27 @@ const GridListCard = ({ title, titleIcon, titleIconColor, items }) => (
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  
+  const [branchName, setBranchName] = useState('Not Set');
+  const [semesterNum, setSemesterNum] = useState('Not Set');
+
+  useEffect(() => {
+    if (isFocused) {
+      loadProfileData();
+    }
+  }, [isFocused]);
+
+  const loadProfileData = async () => {
+    try {
+      const bName = await AsyncStorage.getItem('userBranchName');
+      const sNum = await AsyncStorage.getItem('userSemesterNumber');
+      if (bName) setBranchName(bName);
+      if (sNum) setSemesterNum(sNum);
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -69,8 +92,8 @@ export default function ProfileScreen({ navigation }) {
             />
             <View style={styles.heroDetails}>
               <Text style={styles.heroName}>Manav Gupta</Text>
-              <Text style={styles.heroCourse}>B.Tech Computer Science</Text>
-              <Text style={styles.heroYear}>2nd Year</Text>
+              <Text style={styles.heroCourse}>B.Tech {branchName}</Text>
+              <Text style={styles.heroYear}>Semester {semesterNum}</Text>
               
               <View style={styles.activeBadge}>
                 <Ionicons name="checkmark-circle-outline" size={14} color="#059669" style={styles.badgeIcon} />
@@ -79,7 +102,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.editButton}>
+          <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('AcademicSetup')}>
             <Ionicons name="pencil-outline" size={16} color="#FFFFFF" style={styles.editButtonIcon} />
             <Text style={styles.editButtonText}>Edit Academic Details</Text>
           </TouchableOpacity>
@@ -114,7 +137,7 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.infoLabel}>Branch</Text>
             </View>
             <View style={styles.infoRowRight}>
-              <Text style={styles.infoValue}>Computer Science</Text>
+              <Text style={styles.infoValue}>{branchName}</Text>
               <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={styles.infoChevron} />
             </View>
           </TouchableOpacity>
@@ -129,14 +152,14 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.infoLabel}>Semester</Text>
             </View>
             <View style={styles.infoRowRight}>
-              <Text style={styles.infoValue}>2nd Year</Text>
+              <Text style={styles.infoValue}>Semester {semesterNum}</Text>
               <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={styles.infoChevron} />
             </View>
           </TouchableOpacity>
           
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.infoRowOrange}>
+          <TouchableOpacity style={styles.infoRowOrange} onPress={() => navigation.navigate('AcademicSetup')}>
             <View style={styles.infoRowLeft}>
               <View style={[styles.infoIconBg, { backgroundColor: '#FFF7ED' }]}>
                 <Ionicons name="document-text-outline" size={18} color="#EA580C" />

@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   ScrollView, 
   TouchableOpacity, 
-  Dimensions 
+  Dimensions,
+  Modal,
+  FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getBranches, getSemesters } from '../services/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -31,14 +36,14 @@ const DotGrid = ({ style }) => {
 };
 
 // Reusable component for the dropdown selector cards
-const SelectorCard = ({ label, placeholder, icon }) => (
-  <TouchableOpacity style={styles.selectorCard} activeOpacity={0.7}>
+const SelectorCard = ({ label, placeholder, icon, value, onPress }) => (
+  <TouchableOpacity style={styles.selectorCard} activeOpacity={0.7} onPress={onPress}>
     <View style={styles.selectorIconBg}>
       <Ionicons name={icon} size={20} color="#EA580C" />
     </View>
     <View style={styles.selectorTextContainer}>
       <Text style={styles.selectorLabel}>{label}</Text>
-      <Text style={styles.selectorPlaceholder}>{placeholder}</Text>
+      <Text style={styles.selectorPlaceholder}>{value || placeholder}</Text>
     </View>
     <Ionicons name="chevron-down" size={20} color="#4B5563" />
   </TouchableOpacity>
@@ -46,6 +51,53 @@ const SelectorCard = ({ label, placeholder, icon }) => (
 
 export default function AcademicSetupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  
+  const [branches, setBranches] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [selectedSemester, setSelectedSemester] = useState(null);
+  
+  const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState(null);
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
+
+  useEffect(() => {
+    if (selectedBranch) {
+      fetchSemesters(selectedBranch.id);
+      setSelectedSemester(null);
+    } else {
+      setSemesters([]);
+    }
+  }, [selectedBranch]);
+
+  const fetchBranches = async () => {
+    try {
+      setLoading(true);
+      const data = await getBranches();
+      setBranches(data || []);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSemesters = async (branchId) => {
+    try {
+      setLoading(true);
+      const data = await getSemesters(branchId);
+      setSemesters(data || []);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Hardcoded for UI demonstration based on the mockup
   const features = [
@@ -56,8 +108,18 @@ export default function AcademicSetupScreen({ navigation }) {
     { id: '5', label: 'Important\nQuestions', icon: 'star-outline' },
   ];
 
-  const handleContinue = () => {
-    navigation.replace('Main'); // Navigate to the Main App (Bottom Tabs)
+  const handleContinue = async () => {
+    if (selectedBranch && selectedSemester) {
+      try {
+        await AsyncStorage.setItem('userBranchId', selectedBranch.id);
+        await AsyncStorage.setItem('userBranchName', selectedBranch.name);
+        await AsyncStorage.setItem('userSemesterId', selectedSemester.id);
+        await AsyncStorage.setItem('userSemesterNumber', selectedSemester.number.toString());
+      } catch (e) {
+        console.log('Error saving data', e);
+      }
+    }
+    navigation.replace('MainApp'); // Navigate to the Main App (Bottom Tabs)
   };
 
   return (
@@ -93,9 +155,33 @@ export default function AcademicSetupScreen({ navigation }) {
 
         {/* Dropdown Selectors */}
         <View style={styles.selectorsContainer}>
-          <SelectorCard label="Course" placeholder="Select Course" icon="school-outline" />
-          <SelectorCard label="Branch" placeholder="Select Branch" icon="business-outline" />
-          <SelectorCard label="Semester" placeholder="Select Semester" icon="calendar-outline" />
+          <SelectorCard 
+            label="Course" 
+            placeholder="B.Tech (Fixed)" 
+            icon="school-outline" 
+            value="B.Tech"
+            onPress={() => {}} 
+          />
+          <SelectorCard 
+            label="Branch" 
+            placeholder={loading && !branches.length ? "Loading..." : "Select Branch"} 
+            icon="business-outline" 
+            value={selectedBranch ? selectedBranch.name : ''}
+            onPress={() => { setModalType('branch'); setModalVisible(true); }} 
+          />
+          <SelectorCard 
+            label="Semester" 
+            placeholder={loading && !semesters.length && selectedBranch ? "Loading..." : "Select Semester"} 
+            icon="calendar-outline" 
+            value={selectedSemester ? `Semester ${selectedSemester.number}` : ''}
+            onPress={() => { 
+              if (selectedBranch) {
+                setModalType('semester'); setModalVisible(true); 
+              } else {
+                alert('Please select a branch first');
+              }
+            }} 
+          />
         </View>
 
         {/* Selection Summary Card */}
@@ -106,9 +192,9 @@ export default function AcademicSetupScreen({ navigation }) {
             </View>
             <View style={styles.summaryDetails}>
               <Text style={styles.summaryLabel}>Your Selection</Text>
-              <Text style={styles.summaryTitle}>B.Tech CSE</Text>
+              <Text style={styles.summaryTitle}>{selectedBranch ? `B.Tech ${selectedBranch.name}` : 'Not Selected'}</Text>
               <View style={styles.summaryPill}>
-                <Text style={styles.summaryPillText}>Semester 1</Text>
+                <Text style={styles.summaryPillText}>{selectedSemester ? `Semester ${selectedSemester.number}` : 'No Semester'}</Text>
               </View>
             </View>
           </View>
@@ -142,6 +228,38 @@ export default function AcademicSetupScreen({ navigation }) {
           <Text style={styles.skipButtonText}>Skip For Now</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal for Selection */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select {modalType === 'branch' ? 'Branch' : 'Semester'}</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={modalType === 'branch' ? branches : semesters}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.modalItem}
+                  onPress={() => {
+                    if (modalType === 'branch') setSelectedBranch(item);
+                    else setSelectedSemester(item);
+                    setModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>
+                    {modalType === 'branch' ? item.name : `Semester ${item.number}`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -455,6 +573,38 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#4B5563',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  modalItem: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalItemText: {
+    fontSize: 16,
     color: '#4B5563',
   },
 });

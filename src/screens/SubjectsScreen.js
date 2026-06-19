@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -6,10 +6,14 @@ import {
   ScrollView, 
   TextInput, 
   TouchableOpacity, 
-  FlatList 
+  FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIsFocused } from '@react-navigation/native';
+import { getSubjects } from '../services/supabase';
 import { COLORS } from '../constants/colors';
 
 // Custom Folder Icon Component
@@ -30,60 +34,6 @@ const FolderIcon = ({ iconName, iconColor, folderColor, textIcon }) => {
   );
 };
 
-// Dummy Data for Subjects with metadata for filters
-const initialSubjects = [
-  { 
-    id: '1', 
-    title: 'Physics', 
-    subtitle: 'Semester 1 Material',
-    icon: 'logo-react', // atom-like shape
-    iconColor: '#2563EB', 
-    folderColor: '#DBEAFE',
-    bgColor: '#EFF6FF',
-    types: ['Theory', 'Practical', 'Important']
-  },
-  { 
-    id: '2', 
-    title: 'Mathematics', 
-    subtitle: 'Semester 1 Material',
-    textIcon: 'π', // Pi symbol
-    iconColor: '#4F46E5', 
-    folderColor: '#E0E7FF',
-    bgColor: '#F5F3FF',
-    types: ['Theory', 'Important', 'Pinned']
-  },
-  { 
-    id: '3', 
-    title: 'Programming in C', 
-    subtitle: 'Semester 1 Material',
-    icon: 'code-slash-outline', 
-    iconColor: '#059669', 
-    folderColor: '#D1FAE5',
-    bgColor: '#ECFDF5',
-    types: ['Theory', 'Practical', 'Pinned']
-  },
-  { 
-    id: '4', 
-    title: 'Electrical Engineering', 
-    subtitle: 'Semester 1 Material',
-    icon: 'flash-outline', 
-    iconColor: '#D97706', 
-    folderColor: '#FFEDD5',
-    bgColor: '#FFFBEB',
-    types: ['Theory', 'Practical']
-  },
-  { 
-    id: '5', 
-    title: 'Communication Skills', 
-    subtitle: 'Semester 1 Material',
-    icon: 'chatbubble-ellipses-outline', 
-    iconColor: '#DB2777', 
-    folderColor: '#FCE7F3',
-    bgColor: '#FDF2F8',
-    types: ['Theory']
-  },
-];
-
 const filterChips = [
   { id: 'all', label: 'All', icon: 'grid-outline' },
   { id: 'theory', label: 'Theory', icon: 'book-outline' },
@@ -94,18 +44,45 @@ const filterChips = [
 
 export default function SubjectsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  useEffect(() => {
+    if (isFocused) {
+      loadSubjects();
+    }
+  }, [isFocused]);
+
+  const loadSubjects = async () => {
+    try {
+      setLoading(true);
+      const bId = await AsyncStorage.getItem('userBranchId');
+      const sId = await AsyncStorage.getItem('userSemesterId');
+      
+      if (bId && sId) {
+        const data = await getSubjects(bId, sId);
+        setSubjects(data || []);
+      } else {
+        setSubjects([]);
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle Filtering
-  const filteredSubjects = initialSubjects.filter(subject => {
-    // Search query match
-    const matchesSearch = subject.title.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredSubjects = subjects.filter(subject => {
+    const title = subject.title || subject.name || '';
+    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Filter chip match
     if (selectedFilter === 'all') return matchesSearch;
     
-    // Map selectedFilter ID to Subject types
     const filterTypeMap = {
       theory: 'Theory',
       practical: 'Practical',
@@ -114,7 +91,7 @@ export default function SubjectsScreen({ navigation }) {
     };
     
     const requiredType = filterTypeMap[selectedFilter];
-    return matchesSearch && subject.types.includes(requiredType);
+    return matchesSearch && (subject.types || []).includes(requiredType);
   });
 
   return (
@@ -198,38 +175,42 @@ export default function SubjectsScreen({ navigation }) {
       </View>
 
       {/* Subjects List */}
-      <FlatList
-        data={filteredSubjects}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={[styles.subjectCard, { backgroundColor: item.bgColor }]}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('SubjectDetail', { subject: item })}
-          >
-            <FolderIcon 
-              iconName={item.icon} 
-              iconColor={item.iconColor} 
-              folderColor={item.folderColor}
-              textIcon={item.textIcon}
-            />
-            
-            <View style={styles.subjectTextContainer}>
-              <Text style={styles.subjectTitle}>{item.title}</Text>
-              <Text style={styles.subjectSubtitle}>{item.subtitle}</Text>
-            </View>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#2563EB" />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredSubjects}
+          keyExtractor={(item) => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={[styles.subjectCard, { backgroundColor: item.bgColor || '#F8FAFC' }]}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('SubjectDetail', { subject: item })}
+            >
+              <FolderIcon 
+                iconName={item.icon || 'book-outline'} 
+                iconColor={item.iconColor || '#2563EB'} 
+                folderColor={item.folderColor || '#DBEAFE'}
+                textIcon={item.textIcon}
+              />
+              
+              <View style={styles.subjectTextContainer}>
+                <Text style={styles.subjectTitle}>{item.title || item.name}</Text>
+                <Text style={styles.subjectSubtitle}>{item.subtitle || 'Semester Material'}</Text>
+              </View>
 
-            <Ionicons name="chevron-forward" size={20} color="#111827" style={styles.chevron} />
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="search-outline" size={48} color="#94A3B8" />
-            <Text style={styles.emptyText}>No subjects match your search or filter</Text>
-          </View>
-        }
+              <Ionicons name="chevron-forward" size={20} color="#111827" style={styles.chevron} />
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={48} color="#94A3B8" />
+              <Text style={styles.emptyText}>No subjects match your search or filter</Text>
+            </View>
       />
 
     </View>
