@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ============================================================
 // SUPABASE CLIENT INITIALIZATION
@@ -14,8 +15,19 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
 
+const isValidUUID = (uuid) => {
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return typeof uuid === 'string' && regex.test(uuid);
+};
 
 // ============================================================
 // ACADEMIC HIERARCHY
@@ -36,6 +48,11 @@ export const getBranches = async () => {
 };
 
 export const getSemesters = async (branchId) => {
+  if (!isValidUUID(branchId)) {
+    console.warn(`getSemesters: invalid branchId UUID: "${branchId}"`);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('semesters')
     .select('id, number')
@@ -61,6 +78,11 @@ export const getSemesters = async (branchId) => {
  * @returns {Promise<Array>} List of subjects
  */
 export const getSubjects = async (branchId, semesterId) => {
+  if (!isValidUUID(branchId) || !isValidUUID(semesterId)) {
+    console.warn(`getSubjects: invalid branchId or semesterId UUID: branchId="${branchId}", semesterId="${semesterId}"`);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('subjects')
     .select('*')
@@ -105,6 +127,11 @@ export const getBanners = async () => {
  * @returns {Promise<Array>} List of resources
  */
 export const getResources = async (subjectId) => {
+  if (!isValidUUID(subjectId)) {
+    console.warn(`getResources: invalid subjectId UUID: "${subjectId}"`);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('resources')
     .select('*')
@@ -126,6 +153,11 @@ export const getResources = async (subjectId) => {
  * @returns {Promise<Array>} Filtered resources
  */
 export const getResourcesByType = async (subjectId, type) => {
+  if (!isValidUUID(subjectId)) {
+    console.warn(`getResourcesByType: invalid subjectId UUID: "${subjectId}"`);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('resources')
     .select('*')
@@ -192,6 +224,11 @@ export const getSkills = async () => {
  * @returns {Promise<Array>} List of skill resources
  */
 export const getSkillResources = async (skillId) => {
+  if (!isValidUUID(skillId)) {
+    console.warn(`getSkillResources: invalid skillId UUID: "${skillId}"`);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('skill_resources')
     .select('*')
@@ -235,6 +272,10 @@ export const getMarketplaceServices = async () => {
  * @returns {Promise<Object>} Created order
  */
 export const createOrder = async (orderData) => {
+  if (!isValidUUID(orderData?.service_id)) {
+    throw new Error(`createOrder: invalid service_id UUID: "${orderData?.service_id}"`);
+  }
+
   const { data, error } = await supabase
     .from('orders')
     .insert([{

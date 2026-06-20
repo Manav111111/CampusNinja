@@ -42,6 +42,11 @@ const filterChips = [
   { id: 'pinned', label: 'Pinned', icon: 'pin-outline' },
 ];
 
+const isValidUUID = (uuid) => {
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return typeof uuid === 'string' && regex.test(uuid);
+};
+
 export default function SubjectsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -63,7 +68,17 @@ export default function SubjectsScreen({ navigation }) {
       const bId = await AsyncStorage.getItem('userBranchId');
       const sId = await AsyncStorage.getItem('userSemesterId');
       
-      if (bId && sId) {
+      // If legacy ID is detected (i.e. not a valid UUID), clear and redirect to AcademicSetup
+      if ((bId && !isValidUUID(bId)) || (sId && !isValidUUID(sId))) {
+        await AsyncStorage.removeItem('userBranchId');
+        await AsyncStorage.removeItem('userSemesterId');
+        await AsyncStorage.removeItem('userBranchName');
+        await AsyncStorage.removeItem('userSemesterNumber');
+        navigation.replace('AcademicSetup');
+        return;
+      }
+      
+      if (bId && sId && isValidUUID(bId) && isValidUUID(sId)) {
         const data = await getSubjects(bId, sId);
         setSubjects(data || []);
       } else {
@@ -211,7 +226,9 @@ export default function SubjectsScreen({ navigation }) {
               <Ionicons name="search-outline" size={48} color="#94A3B8" />
               <Text style={styles.emptyText}>No subjects match your search or filter</Text>
             </View>
-      />
+          }
+        />
+      )}
 
     </View>
   );

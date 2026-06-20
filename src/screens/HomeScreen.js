@@ -17,17 +17,17 @@ const { width } = Dimensions.get('window');
 
 // Dummy Data
 const subjects = [
-  { id: '1', title: 'Physics', icon: 'aperture-outline', color: '#8B5CF6' },
-  { id: '2', title: 'Mathematics', icon: 'grid-outline', color: '#10B981' },
-  { id: '3', title: 'Programming in C', icon: 'code-slash-outline', color: '#F97316' },
-  { id: '4', title: 'Electrical Engineering', icon: 'flash-outline', color: '#F59E0B' },
-  { id: '5', title: 'Communication Skills', icon: 'chatbubble-ellipses-outline', color: '#3B82F6' },
+  { id: '00000000-0000-0000-0000-000000000001', title: 'Physics', icon: 'aperture-outline', color: '#8B5CF6' },
+  { id: '00000000-0000-0000-0000-000000000002', title: 'Mathematics', icon: 'grid-outline', color: '#10B981' },
+  { id: '00000000-0000-0000-0000-000000000003', title: 'Programming in C', icon: 'code-slash-outline', color: '#F97316' },
+  { id: '00000000-0000-0000-0000-000000000004', title: 'Electrical Engineering', icon: 'flash-outline', color: '#F59E0B' },
+  { id: '00000000-0000-0000-0000-000000000005', title: 'Communication Skills', icon: 'chatbubble-ellipses-outline', color: '#3B82F6' },
 ];
 
 const recentMaterials = [
-  { id: '1', title: 'Physics Notes Updated', time: '2 hours ago', icon: 'document-text-outline', color: '#3B82F6' },
-  { id: '2', title: '2024 PYQ Added', time: 'Yesterday', icon: 'document-outline', color: '#F97316' },
-  { id: '3', title: 'Important Questions Uploaded', time: '2 days ago', icon: 'star-outline', color: '#10B981' },
+  { id: '00000000-0000-0000-0000-000000000101', title: 'Physics Notes Updated', time: '2 hours ago', icon: 'document-text-outline', color: '#3B82F6' },
+  { id: '00000000-0000-0000-0000-000000000102', title: '2024 PYQ Added', time: 'Yesterday', icon: 'document-outline', color: '#F97316' },
+  { id: '00000000-0000-0000-0000-000000000103', title: 'Important Questions Uploaded', time: '2 days ago', icon: 'star-outline', color: '#10B981' },
 ];
 
 const SectionHeader = ({ title, showViewAll = false }) => (
@@ -40,6 +40,11 @@ const SectionHeader = ({ title, showViewAll = false }) => (
     )}
   </View>
 );
+
+const isValidUUID = (uuid) => {
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return typeof uuid === 'string' && regex.test(uuid);
+};
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -65,12 +70,24 @@ export default function HomeScreen({ navigation }) {
       const bName = await AsyncStorage.getItem('userBranchName');
       const sNum = await AsyncStorage.getItem('userSemesterNumber');
       
+      // If legacy ID is detected (i.e. not a valid UUID), clear and redirect to AcademicSetup
+      if ((bId && !isValidUUID(bId)) || (sId && !isValidUUID(sId))) {
+        await AsyncStorage.removeItem('userBranchId');
+        await AsyncStorage.removeItem('userSemesterId');
+        await AsyncStorage.removeItem('userBranchName');
+        await AsyncStorage.removeItem('userSemesterNumber');
+        navigation.replace('AcademicSetup');
+        return;
+      }
+
       if (bName) setBranchName(bName);
       if (sNum) setSemesterNum(sNum);
 
       const [bannersData, subjectsData] = await Promise.all([
         getBanners(),
-        (bId && sId) ? getSubjects(bId, sId) : Promise.resolve([])
+        (bId && sId && isValidUUID(bId) && isValidUUID(sId)) 
+          ? getSubjects(bId, sId) 
+          : Promise.resolve([])
       ]);
 
       setBanners(bannersData || []);
