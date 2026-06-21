@@ -102,11 +102,12 @@ export const getSubjects = async (branchId, semesterId) => {
 // BANNERS
 // ============================================================
 
-export const getBanners = async () => {
+export const getBanners = async (screenName = 'home') => {
   const { data, error } = await supabase
     .from('banners')
     .select('*')
     .eq('is_active', true)
+    .eq('screen_name', screenName)
     .order('priority', { ascending: false });
 
   if (error) {
@@ -254,10 +255,10 @@ export const getSkillResources = async (skillId) => {
  */
 export const getMarketplaceServices = async () => {
   const { data, error } = await supabase
-    .from('marketplace_services')
+    .from('products')
     .select('*')
     .eq('is_active', true)
-    .order('sort_order', { ascending: true });
+    .order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching marketplace services:', error);
@@ -267,23 +268,64 @@ export const getMarketplaceServices = async () => {
 };
 
 /**
+ * Upload a PDF file for an order to Supabase Storage.
+ * @param {string} fileUri - Local file URI
+ * @param {string} fileName - Original file name
+ * @returns {Promise<string>} Public URL of the uploaded file
+ */
+export const uploadOrderFile = async (fileUri, fileName) => {
+  const fileExt = fileName.split('.').pop() || 'pdf';
+  const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+  const filePath = `orders/${uniqueName}`;
+
+  // Fetch the file as a blob
+  const response = await fetch(fileUri);
+  const blob = await response.blob();
+
+  const { data, error } = await supabase.storage
+    .from('order-files')
+    .upload(filePath, blob, {
+      contentType: 'application/pdf',
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('Error uploading order file:', error);
+    throw error;
+  }
+
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('order-files')
+    .getPublicUrl(filePath);
+
+  return urlData.publicUrl;
+};
+
+/**
  * Submit a new marketplace order.
- * @param {Object} orderData - { service_id, customer_name, customer_phone, customer_email, requirement }
+ * @param {Object} orderData - Full order payload
  * @returns {Promise<Object>} Created order
  */
 export const createOrder = async (orderData) => {
-  if (!isValidUUID(orderData?.service_id)) {
-    throw new Error(`createOrder: invalid service_id UUID: "${orderData?.service_id}"`);
+  if (!isValidUUID(orderData?.product_id)) {
+    throw new Error(`createOrder: invalid product_id UUID: "${orderData?.product_id}"`);
   }
 
   const { data, error } = await supabase
     .from('orders')
     .insert([{
-      service_id: orderData.service_id,
+      product_id: orderData.product_id,
+      user_id: orderData.user_id,
       customer_name: orderData.customer_name,
       customer_phone: orderData.customer_phone,
       customer_email: orderData.customer_email,
-      requirement: orderData.requirement,
+      requirement: orderData.requirement || null,
+      college_name: orderData.college_name || null,
+      address: orderData.address || null,
+      payment_method: orderData.payment_method || 'cod',
+      file_url: orderData.file_url || null,
+      instructions: orderData.instructions || null,
       status: 'pending',
     }])
     .select()
@@ -291,6 +333,30 @@ export const createOrder = async (orderData) => {
 
   if (error) {
     console.error('Error creating order:', error);
+    throw error;
+  }
+  return data;
+};
+
+/**
+ * Fetch all orders for the logged-in user.
+ * @param {string} userId - UUID of the user
+ * @returns {Promise<Array>} List of orders with product details
+ */
+export const getUserOrders = async (userId) => {
+  if (!isValidUUID(userId)) {
+    console.warn(`getUserOrders: invalid userId UUID: "${userId}"`);
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, products(title, price, thumbnail_url)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching user orders:', error);
     throw error;
   }
   return data;

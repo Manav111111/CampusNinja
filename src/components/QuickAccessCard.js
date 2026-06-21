@@ -3,9 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 
-export default function QuickAccessCard({ title, iconName, iconColor, fullWidth }) {
+export default function QuickAccessCard({ title, iconName, iconColor, fullWidth, onPress }) {
   return (
-    <TouchableOpacity style={[styles.container, fullWidth && styles.fullWidth]}>
+    <TouchableOpacity 
+      style={[styles.container, fullWidth && styles.fullWidth]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <View style={[styles.iconContainer, { backgroundColor: iconColor }]} >
         <Ionicons name={iconName} size={24} color="#FFFFFF" />
       </View>

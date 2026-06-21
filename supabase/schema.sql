@@ -288,3 +288,28 @@ CREATE POLICY "resources_bucket_public_read"
 -- ============================================================
 -- SCHEMA COMPLETE
 -- ============================================================
+
+-- ============================================================
+-- 11. DEVICE_TOKENS TABLE
+-- Push notifications registration tokens
+-- ============================================================
+CREATE TABLE IF NOT EXISTS device_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token TEXT NOT NULL UNIQUE,
+  branch_id UUID,
+  semester_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index for tokens by branch/semester for targeted pushes
+CREATE INDEX idx_device_tokens_branch_sem ON device_tokens(branch_id, semester_id);
+
+ALTER TABLE device_tokens ENABLE ROW LEVEL SECURITY;
+
+-- Allow anyone to insert and update device tokens
+CREATE POLICY "device_tokens_public_insert" ON device_tokens
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "device_tokens_public_update" ON device_tokens
+  FOR UPDATE USING (true) WITH CHECK (true);

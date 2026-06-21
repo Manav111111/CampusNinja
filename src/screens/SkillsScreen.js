@@ -1,14 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   ScrollView, 
-  TouchableOpacity 
+  TouchableOpacity,
+  Dimensions,
+  Image,
+  FlatList,
+  Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/colors';
+import { useIsFocused } from '@react-navigation/native';
+import { getBanners } from '../services/supabase';
+
+const { width } = Dimensions.get('window');
 
 const learningPaths = [
   {
@@ -71,6 +78,29 @@ const learningPaths = [
 
 export default function SkillsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const [banners, setBanners] = useState([]);
+
+  useEffect(() => {
+    if (isFocused) {
+      loadBanners();
+    }
+  }, [isFocused]);
+
+  const loadBanners = async () => {
+    try {
+      const data = await getBanners('skills');
+      setBanners(data || []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleBannerPress = (url) => {
+    if (url) {
+      Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -88,20 +118,49 @@ export default function SkillsScreen({ navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Hero Banner */}
-        <View style={styles.bannerContainer}>
-          {/* Decorative Abstract Background Circles */}
-          <View style={styles.bannerCircle1} />
-          <View style={styles.bannerCircle2} />
-          <View style={styles.bannerCircle3} />
-
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>Build Skills That Get You{"\n"}Internships & Placements</Text>
-            <Text style={styles.bannerDescription}>
-              Explore curated roadmaps, notes,{"\n"}projects and resources.
-            </Text>
+        {/* Dynamic Banners */}
+        {banners.length > 0 ? (
+          <FlatList
+            data={banners}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                style={[styles.bannerContainer, { width: width - 32 }]}
+                activeOpacity={0.9}
+                onPress={() => handleBannerPress(item.button_url)}
+              >
+                {item.image_url ? (
+                  <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} />
+                ) : null}
+                <View style={styles.bannerContent}>
+                  <Text style={[styles.bannerTitle, { color: item.image_url ? '#FFFFFF' : '#111827' }]}>{item.title}</Text>
+                  <Text style={[styles.bannerSubtitle, { color: item.image_url ? '#E0E7FF' : '#4B5563' }]}>{item.subtitle}</Text>
+                  {item.button_text ? (
+                    <View style={styles.bannerButton}>
+                      <Text style={styles.bannerButtonText}>{item.button_text}</Text>
+                      <Ionicons name="arrow-forward" size={14} color="#111827" />
+                    </View>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        ) : (
+          <View style={[styles.bannerContainer, { width: width - 32 }]}>
+            <View style={styles.bannerCircle1} />
+            <View style={styles.bannerCircle2} />
+            <View style={styles.bannerCircle3} />
+            <View style={styles.bannerContent}>
+              <Text style={styles.bannerTitle}>Build Skills That Get You{"\n"}Internships & Placements</Text>
+              <Text style={styles.bannerDescription}>
+                Explore curated roadmaps, notes,{"\n"}projects and resources.
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Section Title */}
         <Text style={styles.sectionTitle}>Learning Paths</Text>
@@ -173,7 +232,7 @@ const styles = StyleSheet.create({
     padding: 24,
     position: 'relative',
     overflow: 'hidden',
-    minHeight: 180,
+    height: 180,
   },
   bannerCircle1: {
     position: 'absolute',
@@ -206,6 +265,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 1,
     maxWidth: '85%',
+    flex: 1,
+    justifyContent: 'center',
   },
   bannerTitle: {
     fontSize: 20,
@@ -213,11 +274,32 @@ const styles = StyleSheet.create({
     color: '#111827',
     lineHeight: 28,
   },
+  bannerSubtitle: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginTop: 8,
+  },
   bannerDescription: {
     fontSize: 13,
     color: '#374151',
     marginTop: 12,
     lineHeight: 20,
+  },
+  bannerButton: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  bannerButtonText: {
+    color: '#111827',
+    fontWeight: '600',
+    fontSize: 12,
+    marginRight: 4,
   },
   sectionTitle: {
     fontSize: 16,

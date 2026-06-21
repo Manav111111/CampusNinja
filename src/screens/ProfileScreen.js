@@ -6,12 +6,15 @@ import {
   ScrollView, 
   TouchableOpacity,
   Image,
-  Dimensions
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
+import { supabase } from '../services/supabase';
+import { performGoogleLogin, handleLogout, getCurrentSession } from '../services/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +27,12 @@ const GridListCard = ({ title, titleIcon, titleIconColor, items }) => (
     </View>
     <View style={styles.gridCardBody}>
       {items.map((item, index) => (
-        <TouchableOpacity key={index} style={styles.gridItemRow}>
+        <TouchableOpacity
+          key={index}
+          style={styles.gridItemRow}
+          onPress={item.onPress}
+          activeOpacity={item.onPress ? 0.7 : 1}
+        >
           <View style={[styles.gridItemIconBg, { backgroundColor: item.bg }]}>
             <Ionicons name={item.icon} size={16} color={item.color} />
           </View>
@@ -39,15 +47,36 @@ const GridListCard = ({ title, titleIcon, titleIconColor, items }) => (
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  
+
   const [branchName, setBranchName] = useState('Not Set');
   const [semesterNum, setSemesterNum] = useState('Not Set');
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(false);
 
   useEffect(() => {
     if (isFocused) {
       loadProfileData();
     }
   }, [isFocused]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    getCurrentSession()
+      .then((session) => {
+        if (mounted) setUser(session?.user || null);
+      })
+      .catch((error) => console.error('Failed to load auth session:', error));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   const loadProfileData = async () => {
     try {
@@ -60,14 +89,23 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const handleLogin = async () => {
+    setLoadingAuth(true);
+    try {
+      await performGoogleLogin();
+    } finally {
+      setLoadingAuth(false);
+    }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
             <View style={styles.notificationBadge} />
             <Ionicons name="notifications-outline" size={24} color="#111827" />
           </TouchableOpacity>
@@ -78,22 +116,32 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+
         {/* User Info Hero Card */}
         <View style={styles.heroCard}>
           {/* Abstract decoration to simulate the graphic */}
           <View style={styles.heroDecorationCircle1} />
           <View style={styles.heroDecorationCircle2} />
-          
+
           <View style={styles.heroProfileRow}>
-            <Image 
-              source={{ uri: 'https://i.pravatar.cc/150?img=11' }} 
-              style={styles.avatar} 
-            />
+            {user && user.user_metadata?.avatar_url ? (
+              <Image
+                source={{ uri: user.user_metadata.avatar_url }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Ionicons name="person" size={40} color="#EA580C" />
+              </View>
+            )}
+
             <View style={styles.heroDetails}>
-              <Text style={styles.heroName}>Manav Gupta</Text>
-              <Text style={styles.heroCourse}>B.Tech {branchName}</Text>
-              <Text style={styles.heroYear}>Semester {semesterNum}</Text>
+              <Text style={styles.heroName} numberOfLines={1}>
+                {user ? (user.user_metadata?.full_name || 'Student') : 'Guest Student'}
+              </Text>
+              {user && (
+                <Text style={styles.heroEmail} numberOfLines={1}>{user.email}</Text>
+              )}
               
               <View style={styles.activeBadge}>
                 <Ionicons name="checkmark-circle-outline" size={14} color="#059669" style={styles.badgeIcon} />
@@ -102,10 +150,19 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('AcademicSetup')}>
-            <Ionicons name="pencil-outline" size={16} color="#FFFFFF" style={styles.editButtonIcon} />
-            <Text style={styles.editButtonText}>Edit Academic Details</Text>
-          </TouchableOpacity>
+          {!user ? (
+            <TouchableOpacity style={styles.googleAuthButton} onPress={handleLogin} disabled={loadingAuth}>
+              {loadingAuth ? (
+                <ActivityIndicator color="#111827" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={18} color="#111827" style={styles.googleIcon} />
+                  <Text style={styles.googleAuthText}>Continue with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : null}
+
         </View>
 
         {/* Academic Information Section */}
@@ -178,7 +235,7 @@ export default function ProfileScreen({ navigation }) {
             titleIcon="folder-outline" 
             titleIconColor="#EA580C"
             items={[
-              { label: 'Downloaded Notes', icon: 'download-outline', color: '#8B5CF6', bg: '#F3E8FF' },
+              { label: 'My Orders', icon: 'cart-outline', color: '#8B5CF6', bg: '#F3E8FF', onPress: () => navigation.navigate('MyOrders') },
               { label: 'Saved Resources', icon: 'bookmark-outline', color: '#EF4444', bg: '#FEE2E2' },
               { label: 'Bookmarks', icon: 'bookmark-outline', color: '#F59E0B', bg: '#FEF3C7' },
               { label: 'Recent Downloads', icon: 'time-outline', color: '#3B82F6', bg: '#DBEAFE' },
@@ -223,10 +280,12 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={20} color="#EA580C" style={styles.logoutIcon} />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        {user && (
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={20} color="#EA580C" style={styles.logoutIcon} />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
     </View>
@@ -315,6 +374,11 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     marginRight: 16,
   },
+  avatarPlaceholder: {
+    backgroundColor: '#FFEDD5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   heroDetails: {
     flex: 1,
   },
@@ -323,15 +387,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
-  heroCourse: {
+  heroEmail: {
     fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  heroYear: {
-    fontSize: 13,
-    color: '#EA580C',
-    fontWeight: '500',
+    color: '#4B5563',
     marginTop: 2,
   },
   activeBadge: {
@@ -352,20 +410,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#059669',
   },
-  editButton: {
+  googleAuthButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EA580C',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingVertical: 12,
     zIndex: 1,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  editButtonIcon: {
+  googleIcon: {
     marginRight: 8,
   },
-  editButtonText: {
-    color: '#FFFFFF',
+  googleAuthText: {
+    color: '#111827',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -443,7 +503,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#F3F4F6',
-    marginLeft: 60, // Align with text start
+    marginLeft: 60,
   },
   gridContainer: {
     flexDirection: 'row',
@@ -452,7 +512,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   gridCardContainer: {
-    width: (width - 48) / 2, // Half width minus padding/margins
+    width: (width - 48) / 2,
   },
   gridCardHeader: {
     flexDirection: 'row',

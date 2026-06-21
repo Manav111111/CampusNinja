@@ -10,7 +10,6 @@ import { getBanners, getSubjects } from '../services/supabase';
 // Components
 import QuickAccessCard from '../components/QuickAccessCard';
 import SubjectCard from '../components/SubjectCard';
-import RecentMaterialCard from '../components/RecentMaterialCard';
 import WhatsAppBanner from '../components/WhatsAppBanner';
 
 const { width } = Dimensions.get('window');
@@ -24,17 +23,12 @@ const subjects = [
   { id: '00000000-0000-0000-0000-000000000005', title: 'Communication Skills', icon: 'chatbubble-ellipses-outline', color: '#3B82F6' },
 ];
 
-const recentMaterials = [
-  { id: '00000000-0000-0000-0000-000000000101', title: 'Physics Notes Updated', time: '2 hours ago', icon: 'document-text-outline', color: '#3B82F6' },
-  { id: '00000000-0000-0000-0000-000000000102', title: '2024 PYQ Added', time: 'Yesterday', icon: 'document-outline', color: '#F97316' },
-  { id: '00000000-0000-0000-0000-000000000103', title: 'Important Questions Uploaded', time: '2 days ago', icon: 'star-outline', color: '#10B981' },
-];
 
-const SectionHeader = ({ title, showViewAll = false }) => (
+const SectionHeader = ({ title, showViewAll = false, onViewAll }) => (
   <View style={styles.sectionHeader}>
     <Text style={styles.sectionTitle}>{title}</Text>
     {showViewAll && (
-      <TouchableOpacity>
+      <TouchableOpacity onPress={onViewAll}>
         <Text style={styles.viewAll}>View All</Text>
       </TouchableOpacity>
     )}
@@ -115,11 +109,11 @@ export default function HomeScreen({ navigation }) {
              <Text style={{fontSize: 24, fontWeight: '900', color: COLORS.primary}}>CN</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
               <Ionicons name="notifications-outline" size={24} color={COLORS.text} />
               <View style={styles.badge} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.avatarContainer}>
+            <TouchableOpacity style={styles.avatarContainer} onPress={() => navigation.navigate('Profile')}>
               {/* Fallback to person icon if image fails */}
               <Ionicons name="person-circle" size={36} color={COLORS.text} />
             </TouchableOpacity>
@@ -137,17 +131,11 @@ export default function HomeScreen({ navigation }) {
         </View>
 
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
+        <TouchableOpacity style={styles.searchContainer} onPress={() => navigation.navigate('Search')}>
           <Ionicons name="search-outline" size={20} color={COLORS.secondary} style={styles.searchIcon} />
-          <TextInput 
-            style={styles.searchInput}
-            placeholder="Search Notes, PYQs, Subjects..."
-            placeholderTextColor={COLORS.secondary}
-          />
-          <TouchableOpacity>
-            <Ionicons name="options-outline" size={20} color={COLORS.secondary} />
-          </TouchableOpacity>
-        </View>
+          <Text style={[styles.searchInput, { color: COLORS.secondary }]}>Search Notes, PYQs, Subjects...</Text>
+          <Ionicons name="options-outline" size={20} color={COLORS.secondary} />
+        </TouchableOpacity>
 
         {/* Dynamic Banners */}
         {banners.length > 0 ? (
@@ -169,11 +157,12 @@ export default function HomeScreen({ navigation }) {
                 <View style={styles.bannerContent}>
                   <Text style={styles.bannerTitle}>{item.title}</Text>
                   <Text style={styles.bannerSubtitle}>{item.subtitle}</Text>
-                  {item.button_text && (
+                  {item.button_text ? (
                     <View style={styles.bannerButton}>
-                      <Text style={styles.bannerButtonText}>{item.button_text} <Ionicons name="arrow-forward" size={14} /></Text>
+                      <Text style={styles.bannerButtonText}>{item.button_text}</Text>
+                      <Ionicons name="arrow-forward" size={14} color="#111827" />
                     </View>
-                  )}
+                  ) : null}
                 </View>
               </TouchableOpacity>
             )}
@@ -184,7 +173,8 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.bannerTitle}>Semester Exam{"\n"}Preparation</Text>
               <Text style={styles.bannerSubtitle}>Access Notes, PYQs, Syllabus{"\n"}and Important Questions</Text>
               <TouchableOpacity style={styles.bannerButton}>
-                <Text style={styles.bannerButtonText}>Explore Resources <Ionicons name="arrow-forward" size={14} /></Text>
+                <Text style={styles.bannerButtonText}>Explore Resources</Text>
+                <Ionicons name="arrow-forward" size={14} color="#111827" />
               </TouchableOpacity>
             </View>
           </View>
@@ -194,20 +184,46 @@ export default function HomeScreen({ navigation }) {
         <SectionHeader title="Quick Study Access" />
         <View style={styles.quickAccessContainer}>
           <View style={styles.row}>
-            <QuickAccessCard title="Notes" iconName="book-outline" iconColor="#3B82F6" />
-            <QuickAccessCard title="PYQs" iconName="document-text-outline" iconColor="#F97316" />
+            <QuickAccessCard 
+              title="Notes" 
+              iconName="book-outline" 
+              iconColor="#3B82F6" 
+              onPress={() => navigation.navigate('Subjects')}
+            />
+            <QuickAccessCard 
+              title="PYQs" 
+              iconName="document-text-outline" 
+              iconColor="#F97316" 
+              onPress={() => navigation.navigate('Subjects')}
+            />
           </View>
           <View style={styles.row}>
-            <QuickAccessCard title="Syllabus" iconName="clipboard-outline" iconColor="#10B981" />
-            <QuickAccessCard title="Video Lectures" iconName="play-circle-outline" iconColor="#8B5CF6" />
+            <QuickAccessCard 
+              title="Syllabus" 
+              iconName="clipboard-outline" 
+              iconColor="#10B981" 
+              onPress={() => navigation.navigate('Subjects')}
+            />
+            <QuickAccessCard 
+              title="Video Lectures" 
+              iconName="play-circle-outline" 
+              iconColor="#8B5CF6" 
+              onPress={() => navigation.navigate('Subjects')}
+            />
           </View>
           <View style={{ paddingHorizontal: 10 }}>
-            <QuickAccessCard title="Important Questions" iconName="star-outline" iconColor="#F59E0B" fullWidth />
+            <QuickAccessCard 
+              title="Important Questions" 
+              iconName="star-outline" 
+              iconColor="#F59E0B" 
+              fullWidth 
+              onPress={() => navigation.navigate('Subjects')}
+            />
           </View>
         </View>
 
         {/* Semester Subjects */}
-        <SectionHeader title="Semester Subjects" showViewAll />
+        <SectionHeader title="Semester Subjects" showViewAll onViewAll={() => navigation.navigate('Subjects')} />
         {loading ? (
           <ActivityIndicator size="small" color="#FF6B00" style={{ marginVertical: 20 }} />
         ) : (
@@ -229,19 +245,6 @@ export default function HomeScreen({ navigation }) {
           />
         )}
 
-        {/* Recent Study Material */}
-        <SectionHeader title="Recent Study Material" />
-        <View style={styles.recentMaterialContainer}>
-          {recentMaterials.map((item) => (
-            <RecentMaterialCard 
-              key={item.id}
-              title={item.title} 
-              time={item.time} 
-              iconName={item.icon} 
-              iconColor={item.color} 
-            />
-          ))}
-        </View>
 
         {/* WhatsApp Banner */}
         <WhatsAppBanner />
@@ -431,14 +434,5 @@ const styles = StyleSheet.create({
   listPadding: {
     paddingHorizontal: 16,
     marginBottom: 24,
-  },
-  recentMaterialContainer: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    overflow: 'hidden',
   },
 });

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { setOnboardingComplete } from '../services/storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,11 +67,11 @@ export default function OnboardingScreen({ navigation }) {
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  const scrollToNext = () => {
+  const scrollToNext = async () => {
     if (currentIndex < slides.length - 1) {
       slidesRef.current.scrollToIndex({ index: currentIndex + 1 });
     } else {
-      // Complete onboarding, navigate to AcademicSetup
+      await setOnboardingComplete();
       navigation.replace('AcademicSetup');
     }
   };

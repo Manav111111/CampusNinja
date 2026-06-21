@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isOnboardingComplete } from '../services/storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,12 +29,35 @@ export default function SplashScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    // Navigate to Onboarding after 2.5 seconds
+    let mounted = true;
+
+    const getNextRoute = async () => {
+      const [onboardingComplete, branchId, semesterId] = await Promise.all([
+        isOnboardingComplete(),
+        AsyncStorage.getItem('userBranchId'),
+        AsyncStorage.getItem('userSemesterId'),
+      ]);
+
+      if (branchId && semesterId) return 'MainApp';
+      if (onboardingComplete) return 'AcademicSetup';
+      return 'Onboarding';
+    };
+
     const timer = setTimeout(() => {
-      navigation.replace('Onboarding'); // Using replace so user can't swipe back to splash
+      getNextRoute()
+        .then((routeName) => {
+          if (mounted) navigation.replace(routeName);
+        })
+        .catch((error) => {
+          console.error('Failed to resolve startup route:', error);
+          if (mounted) navigation.replace('Onboarding');
+        });
     }, 2500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
   }, [navigation]);
 
   return (

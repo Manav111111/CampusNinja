@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   ScrollView, 
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  Image,
+  ActivityIndicator,
+  FlatList,
+  Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
+import { getMarketplaceServices, getBanners } from '../services/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -19,66 +25,6 @@ const filterChips = [
   { id: 'lab-manuals', label: 'Lab Manuals' },
   { id: 'eg-sheets', label: 'EG Sheets' },
   { id: 'development', label: 'Development' },
-];
-
-const services = [
-  {
-    id: '1',
-    title: 'First Year Project',
-    price: '₹299',
-    subtitle: 'Ready-made\nacademic project.',
-    icon: 'folder',
-    iconColor: '#8B5CF6',
-    bgColor: '#F3E8FF',
-  },
-  {
-    id: '2',
-    title: 'Assignment Help',
-    price: '₹49',
-    pricePrefix: 'Per assignment.',
-    subtitle: 'Expert assistance\nfor assignments.',
-    icon: 'pencil',
-    iconColor: '#F97316',
-    bgColor: '#FFEDD5',
-  },
-  {
-    id: '3',
-    title: 'Lab Manual Package',
-    price: '₹99',
-    subtitle: 'Complete\npractical file.',
-    icon: 'flask',
-    iconColor: '#10B981',
-    bgColor: '#D1FAE5',
-  },
-  {
-    id: '4',
-    title: 'EG Sheet Bundle',
-    price: '₹79',
-    subtitle: 'Engineering\nGraphics sheets.',
-    icon: 'compass',
-    iconColor: '#EC4899',
-    bgColor: '#FCE7F3',
-  },
-  {
-    id: '5',
-    title: 'Website Development',
-    price: '₹999',
-    pricePrefix: 'Starting',
-    subtitle: 'Custom websites.',
-    icon: 'globe',
-    iconColor: '#3B82F6',
-    bgColor: '#DBEAFE',
-  },
-  {
-    id: '6',
-    title: 'App Development',
-    price: '₹1499',
-    pricePrefix: 'Starting',
-    subtitle: 'Custom Android apps.',
-    icon: 'phone-portrait',
-    iconColor: '#6366F1',
-    bgColor: '#E0E7FF',
-  },
 ];
 
 const features = [
@@ -118,7 +64,44 @@ const features = [
 
 export default function MarketplaceScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [services, setServices] = useState([]);
+  const [banners, setBanners] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isFocused) {
+      loadData();
+    }
+  }, [isFocused]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [servicesData, bannersData] = await Promise.all([
+        getMarketplaceServices(),
+        getBanners('marketplace')
+      ]);
+      setServices(servicesData || []);
+      setBanners(bannersData || []);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredServices = selectedFilter === 'all' 
+    ? services 
+    : services.filter(s => s.category?.toLowerCase() === selectedFilter.replace('-', ' '));
+
+  const handleBannerPress = (url) => {
+    if (url) {
+      Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -141,28 +124,57 @@ export default function MarketplaceScreen({ navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Hero Banner */}
-        <View style={styles.bannerContainer}>
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>Need help with assignments, projects or lab manuals?</Text>
-            <Text style={styles.bannerSubtitle}>Get them delivered quickly.</Text>
-            
-            <View style={styles.badgesContainer}>
-              <View style={styles.badge}>
-                <Ionicons name="shield-checkmark-outline" size={12} color="#1E40AF" style={styles.badgeIcon} />
-                <Text style={styles.badgeText}>Trusted by Thousands</Text>
-              </View>
-              <View style={styles.badge}>
-                <Ionicons name="flash-outline" size={12} color="#1E40AF" style={styles.badgeIcon} />
-                <Text style={styles.badgeText}>On-time Delivery</Text>
+        {/* Dynamic Banners */}
+        {banners.length > 0 ? (
+          <FlatList
+            data={banners}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                style={[styles.bannerContainer, { width: width - 32 }]}
+                activeOpacity={0.9}
+                onPress={() => handleBannerPress(item.button_url)}
+              >
+                {item.image_url ? (
+                  <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} />
+                ) : null}
+                <View style={styles.bannerContent}>
+                  <Text style={[styles.bannerTitle, { color: item.image_url ? '#FFFFFF' : '#111827' }]}>{item.title}</Text>
+                  <Text style={[styles.bannerSubtitle, { color: item.image_url ? '#E0E7FF' : '#4B5563' }]}>{item.subtitle}</Text>
+                  {item.button_text ? (
+                    <View style={styles.bannerButton}>
+                      <Text style={styles.bannerButtonText}>{item.button_text}</Text>
+                      <Ionicons name="arrow-forward" size={14} color="#111827" />
+                    </View>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        ) : (
+          <View style={[styles.bannerContainer, { width: width - 32, backgroundColor: '#F3F4F6' }]}>
+            <View style={styles.bannerContent}>
+              <Text style={styles.bannerTitle}>Need help with assignments, projects or lab manuals?</Text>
+              <Text style={styles.bannerSubtitle}>Get them delivered quickly.</Text>
+              
+              <View style={styles.badgesContainer}>
+                <View style={styles.badge}>
+                  <Ionicons name="shield-checkmark-outline" size={12} color="#1E40AF" style={styles.badgeIcon} />
+                  <Text style={styles.badgeText}>Trusted by Thousands</Text>
+                </View>
+                <View style={styles.badge}>
+                  <Ionicons name="flash-outline" size={12} color="#1E40AF" style={styles.badgeIcon} />
+                  <Text style={styles.badgeText}>On-time Delivery</Text>
+                </View>
               </View>
             </View>
+            <View style={styles.abstractShape1} />
+            <View style={styles.abstractShape2} />
           </View>
-          
-          {/* Decorative shapes to represent the 3D graphic area */}
-          <View style={styles.abstractShape1} />
-          <View style={styles.abstractShape2} />
-        </View>
+        )}
 
         {/* Filter Chips */}
         <View style={styles.filterContainer}>
@@ -191,38 +203,47 @@ export default function MarketplaceScreen({ navigation }) {
         </View>
 
         {/* Services Grid */}
-        <View style={styles.servicesGrid}>
-          {services.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.serviceCard} activeOpacity={0.8}>
-              <View style={[styles.cardIconContainer, { backgroundColor: item.bgColor }]}>
-                <Ionicons name={item.icon} size={28} color={item.iconColor} />
-              </View>
-              
-              <Text style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit>{item.title}</Text>
-              
-              <View style={styles.priceContainer}>
-                {item.pricePrefix && item.pricePrefix !== 'Per assignment.' && (
-                  <Text style={styles.pricePrefix}>{item.pricePrefix} </Text>
-                )}
-                <Text style={styles.cardPrice}>{item.price}</Text>
-              </View>
-              
-              {item.pricePrefix === 'Per assignment.' && (
-                <Text style={styles.cardSubtitleText}>{item.pricePrefix}</Text>
-              )}
-              {item.pricePrefix !== 'Per assignment.' && (
-                <Text style={styles.cardSubtitleText}>{item.subtitle}</Text>
-              )}
-
-              <View style={{ flex: 1 }} />
-
-              <TouchableOpacity style={styles.viewDetailsButton}>
-                <Text style={styles.viewDetailsText}>View Details</Text>
-                <Ionicons name="chevron-forward" size={14} color="#2563EB" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {loading ? (
+          <ActivityIndicator size="large" color="#2563EB" style={{ marginVertical: 40 }} />
+        ) : (
+          <View style={styles.servicesGrid}>
+            {filteredServices.length === 0 ? (
+              <Text style={{ textAlign: 'center', width: '100%', color: '#6B7280', marginVertical: 20 }}>No services found for this category.</Text>
+            ) : (
+              filteredServices.map((item) => (
+                <TouchableOpacity 
+                  key={item.id} 
+                  style={styles.serviceCard} 
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('ServiceDetail', { service: item })}
+                >
+                  {item.thumbnail_url ? (
+                    <Image source={{ uri: item.thumbnail_url }} style={styles.cardImage} />
+                  ) : (
+                    <View style={[styles.cardIconContainer, { backgroundColor: '#F3E8FF' }]}>
+                      <Ionicons name="cart-outline" size={28} color="#8B5CF6" />
+                    </View>
+                  )}
+                  
+                  <Text style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit>{item.title}</Text>
+                  
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.cardPrice}>₹{item.price}</Text>
+                  </View>
+                  
+                  <Text style={styles.cardSubtitleText} numberOfLines={2}>{item.description || 'Professional academic service.'}</Text>
+  
+                  <View style={{ flex: 1 }} />
+  
+                  <TouchableOpacity style={styles.viewDetailsButton} onPress={() => navigation.navigate('ServiceDetail', { service: item })}>
+                    <Text style={styles.viewDetailsText}>Buy Now</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        )}
 
         {/* Why Choose Campus Ninja? */}
         <Text style={styles.sectionTitle}>Why Choose Campus Ninja?</Text>
@@ -286,10 +307,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#1E3A8A',
     padding: 24,
     position: 'relative',
     overflow: 'hidden',
+    height: 180,
   },
   abstractShape1: {
     position: 'absolute',
@@ -315,17 +337,35 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 1,
     maxWidth: '85%',
+    flex: 1,
+    justifyContent: 'center',
   },
   bannerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#111827',
-    lineHeight: 30,
+    lineHeight: 28,
   },
   bannerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#4B5563',
     marginTop: 8,
+  },
+  bannerButton: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  bannerButtonText: {
+    color: '#111827',
+    fontWeight: '600',
+    fontSize: 12,
+    marginRight: 4,
   },
   badgesContainer: {
     flexDirection: 'row',
@@ -389,7 +429,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   serviceCard: {
-    width: (width - 48) / 2, // 2 columns with 16 padding on edges and 16 between
+    width: (width - 48) / 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -404,6 +444,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
     marginBottom: 12,
   },
   cardTitle: {
@@ -443,14 +489,12 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 8,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2563EB',
   },
   viewDetailsText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#2563EB',
+    fontWeight: 'bold',
+    color: '#FFFFFF',
     marginRight: 4,
   },
   sectionTitle: {
