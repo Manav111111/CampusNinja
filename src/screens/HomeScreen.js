@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, Image, TouchableOpacity, FlatList, Dimensions, ActivityIndicator, Linking } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, FlatList, Dimensions, ActivityIndicator, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
-import { getBanners, getSubjects } from '../services/supabase';
+import { getBanners, getSubjects, supabase } from '../services/supabase';
+import { getCurrentSession } from '../services/auth';
 
 // Components
 import QuickAccessCard from '../components/QuickAccessCard';
@@ -49,12 +50,33 @@ export default function HomeScreen({ navigation }) {
   const [banners, setBanners] = useState([]);
   const [mySubjects, setMySubjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
     if (isFocused) {
       loadHomeData();
     }
   }, [isFocused]);
+
+  useEffect(() => {
+    getCurrentSession()
+      .then((session) => {
+        if (session?.user?.user_metadata?.full_name) {
+          setUserName(session.user.user_metadata.full_name.split(' ')[0]);
+        }
+      })
+      .catch(() => {});
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user?.user_metadata?.full_name) {
+        setUserName(session.user.user_metadata.full_name.split(' ')[0]);
+      } else {
+        setUserName('');
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, []);
 
   const loadHomeData = async () => {
     try {
@@ -122,7 +144,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* Greeting Section */}
         <View style={styles.greetingSection}>
-          <Text style={styles.greetingText}>Hello Manav 👋</Text>
+          <Text style={styles.greetingText}>Hello {userName || 'Student'} 👋</Text>
           <View style={styles.subGreetingContainer}>
             <Text style={styles.subGreetingText}>{branchName ? `B.Tech ${branchName}` : 'No Branch Selected'}</Text>
             <View style={styles.dotSeparator} />

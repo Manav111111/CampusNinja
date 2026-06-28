@@ -1,0 +1,25 @@
+# Dependencies (installed on EAS build servers)
+node_modules/
+
+# Git
+.git/
+
+# Expo
+.expo/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+.agents/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+
+# Docs
+*.md
+!README.md

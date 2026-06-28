@@ -1,5 +1,4 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAnalytics, isSupported } from 'firebase/analytics';
 import googleServices from '../../google-services.json';
 
 // Parse configuration from google-services.json
@@ -18,16 +17,10 @@ const firebaseConfig = {
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Analytics conditionally (may not be supported in all Expo native environments without plugins)
+// Firebase Analytics via the JS SDK is NOT supported in React Native.
+// The JS SDK requires browser APIs (IndexedDB, window) that don't exist in RN.
+// For native analytics, use @react-native-firebase/analytics instead.
+// We export null so that analytics.js gracefully falls back to console logging.
 let analytics = null;
-isSupported()
-  .then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  })
-  .catch((err) => {
-    console.log("Firebase Analytics not supported in this environment:", err.message);
-  });
 
 export { app, analytics };

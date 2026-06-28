@@ -449,9 +449,9 @@ export const searchAll = async (query) => {
       .limit(10),
 
     supabase
-      .from('marketplace_services')
-      .select('id, name, icon_name, theme_color, price')
-      .ilike('name', searchTerm)
+      .from('products')
+      .select('id, title, description, price, thumbnail_url, category')
+      .ilike('title', searchTerm)
       .eq('is_active', true)
       .limit(10),
   ]);

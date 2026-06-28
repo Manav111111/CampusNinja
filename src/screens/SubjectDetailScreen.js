@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 import { getResources } from '../services/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const tabs = [
   { id: 'notes', label: 'Notes', icon: 'document-text-outline' },
@@ -41,10 +42,24 @@ export default function SubjectDetailScreen({ route, navigation }) {
   
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [branchName, setBranchName] = useState('B.Tech');
+  const [semesterNum, setSemesterNum] = useState('');
 
   useEffect(() => {
     loadResources();
+    loadAcademicInfo();
   }, [subject]);
+
+  const loadAcademicInfo = async () => {
+    try {
+      const bName = await AsyncStorage.getItem('userBranchName');
+      const sNum = await AsyncStorage.getItem('userSemesterNumber');
+      if (bName) setBranchName(`B.Tech ${bName}`);
+      if (sNum) setSemesterNum(`Semester ${sNum}`);
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   const loadResources = async () => {
     try {
@@ -144,11 +159,11 @@ export default function SubjectDetailScreen({ route, navigation }) {
         </TouchableOpacity>
         
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{subject.title}</Text>
+          <Text style={styles.headerTitle}>{subject.name || subject.title}</Text>
           <View style={styles.headerSubtitleContainer}>
-            <Text style={styles.subtitleGray}>B.Tech CSE</Text>
+            <Text style={styles.subtitleGray}>{branchName}</Text>
             <View style={styles.dotSeparator} />
-            <Text style={styles.subtitleBlue}>Semester 1</Text>
+            <Text style={styles.subtitleBlue}>{semesterNum || 'Semester'}</Text>
           </View>
         </View>
 
@@ -175,18 +190,18 @@ export default function SubjectDetailScreen({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         {/* Dynamic Hero Banner */}
-        <View style={[styles.bannerContainer, { backgroundColor: subject.iconColor }]}>
+        <View style={[styles.bannerContainer, { backgroundColor: subject.theme_color || subject.iconColor || '#2563EB' }]}>
           {/* Decorative Background Circles */}
           <View style={styles.bannerCircle1} />
           <View style={styles.bannerCircle2} />
 
           <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>{subject.title}</Text>
+            <Text style={styles.bannerTitle}>{subject.name || subject.title}</Text>
             <View style={styles.bannerBadge}>
               <Text style={styles.bannerBadgeText}>Semester 1</Text>
             </View>
             <Text style={styles.bannerDescription}>
-              Everything you need for your {subject.title} exam.
+              Everything you need for your {subject.name || subject.title} exam.
             </Text>
 
             <View style={styles.metaRow}>

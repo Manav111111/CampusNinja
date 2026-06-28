@@ -1,21 +1,12 @@
-import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import { Alert } from 'react-native';
 import { supabase } from './supabase';
 
-WebBrowser.maybeCompleteAuthSession();
+// ── Helpers ──────────────────────────────────────────────────────
 
-let pendingOAuthRequest = null;
-let lastHandledCallbackUrl = null;
-
-export const getOAuthRedirectUrl = () => (
-  Linking.createURL('auth/callback')
-);
-
-const getUrlParams = (url) => {
-  const [withoutFragment, fragment = ''] = url.split('#');
-  const query = withoutFragment.includes('?') ? withoutFragment.split('?')[1] : '';
-  return new URLSearchParams([query, fragment].filter(Boolean).join('&'));
+export const getOAuthRedirectUrl = () => {
+  return 'campusninja://auth/callback';
 };
 
 export const getCurrentSession = async () => {
@@ -24,84 +15,74 @@ export const getCurrentSession = async () => {
   return data.session;
 };
 
+// ── Handle the OAuth callback URL ───────────────────────────────
+
+let lastHandledUrl = null;
+
 export const handleAuthCallback = async (url) => {
-  if (!url || url === lastHandledCallbackUrl) return false;
+  if (!url || url === lastHandledUrl) return false;
 
-  const params = getUrlParams(url);
-  const error = params.get('error_description') || params.get('error');
-  if (error) throw new Error(error);
+  const [base, fragment = ''] = url.split('#');
+  const query = base.includes('?') ? base.split('?')[1] : '';
+  const combined = [query, fragment].filter(Boolean).join('&');
+  const params = new URLSearchParams(combined);
 
-  const accessToken = params.get('access_token');
+  const oauthError = params.get('error_description') || params.get('error');
+  if (oauthError) throw new Error(oauthError);
+
+  const accessToken  = params.get('access_token');
   const refreshToken = params.get('refresh_token');
-  const code = params.get('code');
 
-  if (!accessToken && !refreshToken && !code) {
-    return false;
-  }
+  if (!accessToken && !refreshToken) return false;
 
-  lastHandledCallbackUrl = url;
+  lastHandledUrl = url;
 
-  if (accessToken && refreshToken) {
-    const { error: sessionError } = await supabase.auth.setSession({
+  try {
+    const { error } = await supabase.auth.setSession({
       access_token: accessToken,
       refresh_token: refreshToken,
     });
-
-    if (sessionError) throw sessionError;
-    const session = await getCurrentSession();
-    console.log('OAuth session stored from tokens:', Boolean(session?.user));
+    if (error) throw error;
+    console.log('✅ OAuth session set from tokens');
     return true;
+  } catch (err) {
+    lastHandledUrl = null;
+    throw err;
   }
-
-  if (code) {
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-    if (exchangeError) throw exchangeError;
-    const session = await getCurrentSession();
-    console.log('OAuth session exchanged from code:', Boolean(session?.user));
-    return true;
-  }
-
-  return false;
 };
 
-const performGoogleLoginInternal = async () => {
+// ── Google Login ─────────────────────────────────────────────────
+
+export const performGoogleLogin = async () => {
   try {
-    const redirectTo = getOAuthRedirectUrl();
+    const returnUrl = getOAuthRedirectUrl();
 
     console.log('=== Google Login Debug ===');
-    console.log('Redirect URL:', redirectTo);
+    console.log('Return URL:', returnUrl);
 
+    // 1. Get the OAuth URL from Supabase
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo,
+        redirectTo: returnUrl,
         skipBrowserRedirect: true,
       },
     });
 
     if (error) throw error;
     if (!data.url) throw new Error('No URL returned from Supabase OAuth');
-    console.log('Supabase OAuth URL created:', data.url.includes('redirect_to='));
 
-    console.log('Opening browser for OAuth...');
+    console.log('Opening System Browser for OAuth…');
 
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-    console.log('Browser result type:', result.type);
+    // 2. Use Linking.openURL instead of WebBrowser.
+    // Expo Go on Android has a known bug where WebBrowser's internal 
+    // RedirectUriReceiver gets pre-empted by the main Expo app intent filter.
+    // This causes WebBrowser to incorrectly return 'dismiss' and drop the URL.
+    // Linking.openURL natively passes the deep link back to the OS, which our
+    // App.js listener will now correctly catch since we fixed the React Navigation conflict!
+    await Linking.openURL(data.url);
 
-    if (result.type === 'success') {
-      console.log('Callback URL received:', result.url);
-
-      const didCreateSession = await handleAuthCallback(result.url);
-      if (didCreateSession) {
-        console.log('Login successful!');
-        return true;
-      }
-
-      console.log('No OAuth tokens or auth code found in callback URL');
-    } else if (result.type === 'cancel' || result.type === 'dismiss') {
-      console.log('User cancelled login');
-    }
-
+    // The resolution happens asynchronously via App.js linking listener.
     return false;
   } catch (error) {
     console.error('Google Login Error:', error);
@@ -110,24 +91,13 @@ const performGoogleLoginInternal = async () => {
   }
 };
 
-export const performGoogleLogin = async () => {
-  if (pendingOAuthRequest) {
-    return pendingOAuthRequest;
-  }
-
-  pendingOAuthRequest = performGoogleLoginInternal();
-
-  try {
-    return await pendingOAuthRequest;
-  } finally {
-    pendingOAuthRequest = null;
-  }
-};
+// ── Logout ──────────────────────────────────────────────────────
 
 export const handleLogout = async () => {
   try {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    lastHandledUrl = null; 
   } catch (error) {
     console.error('Logout error', error);
     Alert.alert('Logout Failed', error.message);

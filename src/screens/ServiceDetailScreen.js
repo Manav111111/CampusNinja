@@ -28,7 +28,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{service.title}</Text>
-        <View style={{ width: 40 }} /> {/* Spacer */}
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>

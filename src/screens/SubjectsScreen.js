@@ -55,12 +55,28 @@ export default function SubjectsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [branchName, setBranchName] = useState('B.Tech');
+  const [semesterNum, setSemesterNum] = useState('');
 
   useEffect(() => {
     if (isFocused) {
       loadSubjects();
     }
   }, [isFocused]);
+
+  useEffect(() => {
+    const loadAcademicInfo = async () => {
+      try {
+        const bName = await AsyncStorage.getItem('userBranchName');
+        const sNum = await AsyncStorage.getItem('userSemesterNumber');
+        if (bName) setBranchName(`B.Tech ${bName}`);
+        if (sNum) setSemesterNum(`Semester ${sNum}`);
+      } catch (e) {
+        console.log(e);
+      }
+    };
+    loadAcademicInfo();
+  }, []);
 
   const loadSubjects = async () => {
     try {
@@ -124,9 +140,9 @@ export default function SubjectsScreen({ navigation }) {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Subjects</Text>
           <View style={styles.headerSubtitleContainer}>
-            <Text style={styles.subtitleGray}>B.Tech CSE</Text>
+            <Text style={styles.subtitleGray}>{branchName}</Text>
             <View style={styles.dotSeparator} />
-            <Text style={styles.subtitleBlue}>Semester 1</Text>
+            <Text style={styles.subtitleBlue}>{semesterNum || 'Semester'}</Text>
           </View>
         </View>
 

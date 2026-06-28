@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -7,7 +7,39 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { handleAuthCallback } from './src/services/auth';
 
 const linking = {
-  prefixes: [Linking.createURL('/'), 'campusninja://'],
+  prefixes: [Linking.createURL('/'), Linking.createURL(''), 'campusninja://'],
+  
+  // Custom getInitialURL to intercept deep links BEFORE React Navigation consumes them and strips hash fragments
+  async getInitialURL() {
+    const url = await Linking.getInitialURL();
+    if (url) {
+      console.log('🔗 [Navigation] Initial URL intercepted:', url);
+      try {
+        await handleAuthCallback(url);
+      } catch (error) {
+        console.error('❌ [Navigation] Auth callback failed:', error);
+      }
+    }
+    return url;
+  },
+  
+  // Custom subscribe to intercept deep links during app runtime
+  subscribe(listener) {
+    const subscription = Linking.addEventListener('url', async ({ url }) => {
+      console.log('🔗 [Navigation] Deep link intercepted:', url);
+      try {
+        await handleAuthCallback(url);
+      } catch (error) {
+        console.error('❌ [Navigation] Auth callback failed:', error);
+      }
+      listener(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  },
+
   config: {
     screens: {
       Splash: 'splash',
@@ -26,26 +58,6 @@ const linking = {
 };
 
 export default function App() {
-  useEffect(() => {
-    const processUrl = async (url) => {
-      try {
-        await handleAuthCallback(url);
-      } catch (error) {
-        console.error('OAuth callback handling failed:', error);
-      }
-    };
-
-    Linking.getInitialURL().then((url) => {
-      if (url) processUrl(url);
-    });
-
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      processUrl(url);
-    });
-
-    return () => subscription.remove();
-  }, []);
-
   return (
     <SafeAreaProvider>
       <NavigationContainer linking={linking}>

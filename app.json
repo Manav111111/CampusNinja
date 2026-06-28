@@ -29,7 +29,15 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-web-browser"
-    ]
+      "expo-web-browser",
+      "expo-document-picker",
+      "expo-dev-client",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c14c2c37-0341-4659-ad64-65e909e56093"
+      }
+    }
   }
 }
