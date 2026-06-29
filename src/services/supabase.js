@@ -98,6 +98,24 @@ export const getSubjects = async (branchId, semesterId) => {
   return data;
 };
 
+/**
+ * Fetch all active subjects across all branches and semesters for global search.
+ * @returns {Promise<Array>} List of all subjects
+ */
+export const getAllSubjects = async () => {
+  const { data, error } = await supabase
+    .from('subjects')
+    .select('*')
+    .eq('is_active', true)
+    .order('title', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching all subjects:', error);
+    throw error;
+  }
+  return data || [];
+};
+
 // ============================================================
 // BANNERS
 // ============================================================

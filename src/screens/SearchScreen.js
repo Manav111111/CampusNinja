@@ -1,83 +1,131 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   TextInput, 
   ScrollView, 
-  TouchableOpacity
+  TouchableOpacity,
+  ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { getAllSubjects, getMarketplaceServices } from '../services/supabase';
+
+const fallbackSubjects = [
+  { id: 'sub-1', title: 'Physics', icon: 'aperture-outline', color: '#8B5CF6' },
+  { id: 'sub-2', title: 'Mathematics', icon: 'grid-outline', color: '#10B981' },
+  { id: 'sub-3', title: 'Programming in C', icon: 'code-slash-outline', color: '#F97316' },
+  { id: 'sub-4', title: 'Electrical Engg.', icon: 'flash-outline', color: '#F59E0B' },
+  { id: 'sub-5', title: 'Communication', icon: 'chatbubble-ellipses-outline', color: '#3B82F6' },
+  { id: 'sub-6', title: 'Data Structures & Algorithms', icon: 'git-network-outline', color: '#EF4444' },
+  { id: 'sub-7', title: 'Operating Systems', icon: 'desktop-outline', color: '#10B981' },
+];
+
+const fallbackMarketplace = [
+  { id: 'm-1', title: 'Custom College Assignments', price: '149', category: 'Assignments', badge: '⚡ 24h Delivery', color: '#3B82F6', icon: 'document-text-outline', description: 'Handwritten or typed custom assignments delivered on time.' },
+  { id: 'm-2', title: 'Complete Lab Manual Solutions', price: '99', category: 'Lab Manuals', badge: '⭐ Verified', color: '#10B981', icon: 'flask-outline', description: 'Accurate lab readings and complete experiment solutions.' },
+  { id: 'm-3', title: 'Final Year Minor / Major Projects', price: '499', category: 'Projects', badge: '🔥 Best Seller', color: '#F97316', icon: 'laptop-outline', description: 'Ready to submit working source code, project report and PPT.' },
+  { id: 'm-4', title: 'Engineering Graphics (EG) Sheets', price: '199', category: 'EG Sheets', badge: '📐 Neat Drawing', color: '#8B5CF6', icon: 'compass-outline', description: 'Neat A2/A3 drawing sheets drawn to perfection.' },
+];
 
 export default function SearchScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
-  const recentSearches = [
-    'Physics Notes', 'Mathematics PYQ', 'Programming in C',
-    'Web Development', 'DSA'
-  ];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [recentSearches, setRecentSearches] = useState([
+    'Physics', 'Assignments', 'Mathematics', 'Projects', 'Lab Manuals'
+  ]);
+  const [allSubjects, setAllSubjects] = useState([]);
+  const [allMarketplace, setAllMarketplace] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const popularResources = [
-    'Important Questions', 'Complete Physics Notes', '2024 PYQs',
-    'Semester Syllabus', 'Formula Sheets', 'Video Lectures'
-  ];
-
-  const suggestedResults = [
-    {
-      id: '1',
-      title: 'Physics',
-      type: 'Subject',
-      actionText: 'Semester 1',
-      icon: 'book-outline',
-      themeColor: '#EA580C',
-      bgColor: '#FFEDD5',
-    },
-    {
-      id: '2',
-      title: 'Complete Physics Notes',
-      type: 'PDF Resource',
-      actionText: 'Open PDF',
-      icon: 'document-text-outline',
-      themeColor: '#EF4444',
-      bgColor: '#FEE2E2',
-    },
-    {
-      id: '3',
-      title: 'Physics 2024 PYQ',
-      type: 'Question Paper',
-      actionText: 'Open Resource',
-      icon: 'document-text-outline',
-      themeColor: '#EA580C',
-      bgColor: '#FFFBEB',
-    },
-    {
-      id: '4',
-      title: 'Physics Complete Playlist',
-      type: 'YouTube Playlist',
-      actionText: 'Open Playlist',
-      icon: 'play-outline',
-      themeColor: '#7C3AED',
-      bgColor: '#F3E8FF',
-    },
-    {
-      id: '5',
-      title: 'Web Development',
-      type: 'Learning Path',
-      actionText: 'Open Path',
-      icon: 'school-outline',
-      themeColor: '#10B981',
-      bgColor: '#D1FAE5',
-    },
+    'Physics', 'Assignments', 'Mathematics PYQ', 'Lab Manual Solutions', 'C Programming', 'Major Projects'
   ];
 
   const categoryChips = [
     { id: '1', label: 'Notes', icon: 'book-outline', color: '#3B82F6' },
     { id: '2', label: 'PYQs', icon: 'document-text-outline', color: '#EA580C' },
     { id: '3', label: 'Subjects', icon: 'school-outline', color: '#10B981' },
-    { id: '4', label: 'Video Lectures', icon: 'play-outline', color: '#8B5CF6' },
-    { id: '5', label: 'Skills', icon: 'star-outline', color: '#F59E0B' },
+    { id: '4', label: 'Assignments', icon: 'clipboard-outline', color: '#8B5CF6' },
+    { id: '5', label: 'Projects', icon: 'laptop-outline', color: '#F59E0B' },
   ];
+
+  useEffect(() => {
+    loadSearchData();
+  }, []);
+
+  const loadSearchData = async () => {
+    try {
+      setLoading(true);
+      const [subjectsData, marketData] = await Promise.all([
+        getAllSubjects(),
+        getMarketplaceServices()
+      ]);
+      setAllSubjects(subjectsData && subjectsData.length > 0 ? subjectsData : fallbackSubjects);
+      setAllMarketplace(marketData && marketData.length > 0 ? marketData : fallbackMarketplace);
+    } catch (error) {
+      console.log('Error loading search data:', error);
+      setAllSubjects(fallbackSubjects);
+      setAllMarketplace(fallbackMarketplace);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChipPress = (text) => {
+    setSearchQuery(text);
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+  };
+
+  // Filter combined search results
+  const query = searchQuery.trim().toLowerCase();
+  const matchedSubjects = query ? allSubjects.filter(sub => {
+    const titleMatch = (sub.title || sub.name || '').toLowerCase().includes(query);
+    const codeMatch = (sub.code || '').toLowerCase().includes(query);
+    return titleMatch || codeMatch;
+  }).map(sub => ({
+    id: `sub_${sub.id}`,
+    originalItem: sub,
+    title: sub.title || sub.name,
+    type: 'Academic Subject',
+    actionText: 'View Subject',
+    icon: sub.icon || sub.icon_name || 'book-outline',
+    themeColor: sub.color || sub.theme_color || '#8B5CF6',
+    bgColor: (sub.color || sub.theme_color || '#8B5CF6') + '20',
+    resultType: 'Subject'
+  })) : [];
+
+  const matchedMarketplace = query ? allMarketplace.filter(item => {
+    const titleMatch = (item.title || '').toLowerCase().includes(query);
+    const catMatch = (item.category || '').toLowerCase().includes(query);
+    const descMatch = (item.description || '').toLowerCase().includes(query);
+    return titleMatch || catMatch || descMatch;
+  }).map(item => ({
+    id: `market_${item.id}`,
+    originalItem: item,
+    title: item.title,
+    type: item.category ? `Marketplace • ₹${item.price}` : `Marketplace Service • ₹${item.price}`,
+    actionText: 'Order Now',
+    icon: item.icon || 'cart-outline',
+    themeColor: item.color || '#FF6B00',
+    bgColor: (item.color || '#FF6B00') + '20',
+    resultType: 'Marketplace'
+  })) : [];
+
+  const combinedResults = [...matchedSubjects, ...matchedMarketplace];
+
+  const handleResultPress = (result) => {
+    if (result.resultType === 'Subject') {
+      navigation.navigate('SubjectDetail', { subject: result.originalItem });
+    } else if (result.resultType === 'Marketplace') {
+      navigation.navigate('ServiceDetail', { service: result.originalItem });
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -89,97 +137,132 @@ export default function SearchScreen({ navigation }) {
         <Text style={styles.headerTitle}>Search</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        {/* Search Bar */}
+      {/* Search Bar */}
+      <View style={styles.searchBarWrapper}>
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={20} color="#6B7280" />
           <TextInput 
             style={styles.searchInput}
-            placeholder="Search notes, PYQs, subjects, videos, skills..."
+            placeholder="Search all subjects, PYQs, marketplace..."
             placeholderTextColor="#9CA3AF"
             autoFocus={true}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-          <TouchableOpacity>
-            <Ionicons name="mic-outline" size={20} color="#EA580C" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Recent Searches */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Searches</Text>
-            <TouchableOpacity>
-              <Text style={styles.clearText}>Clear All</Text>
+          {searchQuery.length > 0 ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
             </TouchableOpacity>
-          </View>
-          <View style={styles.chipsContainer}>
-            {recentSearches.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.chip}>
-                <Ionicons name="time-outline" size={16} color="#EA580C" style={styles.chipIcon} />
-                <Text style={styles.chipText}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          ) : (
+            <Ionicons name="mic-outline" size={20} color="#FF6B00" />
+          )}
         </View>
+      </View>
 
-        {/* Popular Resources */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Popular Resources</Text>
-          <View style={styles.chipsContainer}>
-            {popularResources.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.chip}>
-                <Ionicons name="trending-up-outline" size={16} color="#EA580C" style={styles.chipIcon} />
-                <Text style={styles.chipText}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Suggested Results */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Suggested Results</Text>
-          {suggestedResults.map((result) => (
-            <TouchableOpacity key={result.id} style={styles.resultCard} activeOpacity={0.7}>
-              <View style={[styles.resultIconBox, { backgroundColor: result.bgColor }]}>
-                <Ionicons name={result.icon} size={24} color={result.themeColor} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        
+        {loading ? (
+          <ActivityIndicator size="large" color="#FF6B00" style={{ marginVertical: 40 }} />
+        ) : query ? (
+          /* Live Search Results */
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>
+              Search Results ({combinedResults.length})
+            </Text>
+            
+            {combinedResults.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={56} color="#CBD5E1" />
+                <Text style={styles.emptyTitle}>No matching results found</Text>
+                <Text style={styles.emptySubtitle}>
+                  We searched across all academic subjects and marketplace services for "{searchQuery}".
+                </Text>
               </View>
-              <View style={styles.resultContent}>
-                <Text style={styles.resultTitle}>{result.title}</Text>
-                <View style={styles.resultSubtitleContainer}>
-                  <Text style={styles.resultType}>{result.type}</Text>
-                  <Text style={styles.dotSeparator}>•</Text>
-                  <Text style={[styles.resultAction, { color: result.themeColor }]}>{result.actionText}</Text>
+            ) : (
+              combinedResults.map((result) => (
+                <TouchableOpacity 
+                  key={result.id} 
+                  style={styles.resultCard} 
+                  activeOpacity={0.8}
+                  onPress={() => handleResultPress(result)}
+                >
+                  <View style={[styles.resultIconBox, { backgroundColor: result.bgColor }]}>
+                    <Ionicons name={result.icon} size={24} color={result.themeColor} />
+                  </View>
+                  <View style={styles.resultContent}>
+                    <Text style={styles.resultTitle}>{result.title}</Text>
+                    <View style={styles.resultSubtitleContainer}>
+                      <Text style={styles.resultType}>{result.type}</Text>
+                      <Text style={styles.dotSeparator}>•</Text>
+                      <Text style={[styles.resultAction, { color: result.themeColor }]}>{result.actionText}</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        ) : (
+          /* Default Pre-Search State (No Static Suggested Results) */
+          <>
+            {/* Recent Searches */}
+            {recentSearches.length > 0 && (
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Recent Searches</Text>
+                  <TouchableOpacity onPress={clearRecentSearches}>
+                    <Text style={styles.clearText}>Clear All</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.chipsContainer}>
+                  {recentSearches.map((item, index) => (
+                    <TouchableOpacity key={index} style={styles.chip} onPress={() => handleChipPress(item)}>
+                      <Ionicons name="time-outline" size={16} color="#FF6B00" style={styles.chipIcon} />
+                      <Text style={styles.chipText}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-          ))}
-        </View>
+            )}
 
-        {/* Bottom Helper Banner */}
-        <View style={styles.helperBanner}>
-          <View style={styles.helperIconRow}>
-            <View style={styles.magnifyingGlass}>
-              <Ionicons name="search-outline" size={24} color="#EA580C" />
+            {/* Popular Resources */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Popular Searches</Text>
+              <View style={styles.chipsContainer}>
+                {popularResources.map((item, index) => (
+                  <TouchableOpacity key={index} style={styles.chip} onPress={() => handleChipPress(item)}>
+                    <Ionicons name="trending-up-outline" size={16} color="#FF6B00" style={styles.chipIcon} />
+                    <Text style={styles.chipText}>{item}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-            <View style={styles.helperLines}>
-              <View style={styles.helperLine1} />
-              <View style={styles.helperLine2} />
+
+            {/* Bottom Helper Banner */}
+            <View style={styles.helperBanner}>
+              <View style={styles.helperIconRow}>
+                <View style={styles.magnifyingGlass}>
+                  <Ionicons name="search-outline" size={26} color="#FF6B00" />
+                </View>
+                <View style={styles.helperLines}>
+                  <View style={styles.helperLine1} />
+                  <View style={styles.helperLine2} />
+                </View>
+              </View>
+              <Text style={styles.helperTitle}>Search across all CampusNinja</Text>
+              <Text style={styles.helperSubtitle}>Find any subject across all semesters or order custom assignments instantly</Text>
+              
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryChipsScroll}>
+                {categoryChips.map((chip) => (
+                  <TouchableOpacity key={chip.id} style={styles.categoryChip} onPress={() => handleChipPress(chip.label)}>
+                    <Ionicons name={chip.icon} size={14} color={chip.color} style={styles.chipIcon} />
+                    <Text style={styles.categoryChipText}>{chip.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-          </View>
-          <Text style={styles.helperTitle}>Search anything related to your semester</Text>
-          <Text style={styles.helperSubtitle}>Find notes, PYQs, subjects, videos and skills</Text>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryChipsScroll}>
-            {categoryChips.map((chip) => (
-              <TouchableOpacity key={chip.id} style={styles.categoryChip}>
-                <Ionicons name={chip.icon} size={14} color={chip.color} style={styles.chipIcon} />
-                <Text style={styles.categoryChipText}>{chip.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+          </>
+        )}
 
       </ScrollView>
     </View>
@@ -205,20 +288,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
-  scrollContent: {
+  searchBarWrapper: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#FF6B00',
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: 6,
+    marginBottom: 20,
+    backgroundColor: '#FFFBEB',
   },
   searchInput: {
     flex: 1,
@@ -226,6 +309,11 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginLeft: 10,
     marginRight: 10,
+    fontWeight: '500',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   sectionContainer: {
     marginBottom: 28,
@@ -237,60 +325,61 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1E293B',
     marginBottom: 12,
   },
   clearText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#EA580C',
-    marginBottom: 12, // match alignment
+    fontWeight: '700',
+    color: '#FF6B00',
+    marginBottom: 12,
   },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10, // RN 0.71+ supports gap
+    gap: 10,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
-    marginBottom: 10,
-    marginRight: 10,
+    backgroundColor: '#F8FAFC',
+    marginBottom: 8,
+    marginRight: 8,
   },
   chipIcon: {
     marginRight: 6,
   },
   chipText: {
     fontSize: 13,
-    color: '#374151',
+    fontWeight: '600',
+    color: '#334155',
   },
   resultCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F1F5F9',
     borderRadius: 16,
-    padding: 12,
+    padding: 14,
     marginBottom: 12,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   resultIconBox: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -300,8 +389,8 @@ const styles = StyleSheet.create({
   },
   resultTitle: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 4,
   },
   resultSubtitleContainer: {
@@ -310,24 +399,44 @@ const styles = StyleSheet.create({
   },
   resultType: {
     fontSize: 12,
-    color: '#6B7280',
+    fontWeight: '600',
+    color: '#64748B',
   },
   dotSeparator: {
     fontSize: 12,
-    color: '#D1D5DB',
+    color: '#CBD5E1',
     marginHorizontal: 6,
   },
   resultAction: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '700',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   helperBanner: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#E2E8F0',
   },
   helperIconRow: {
     flexDirection: 'row',
@@ -335,11 +444,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   magnifyingGlass: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
-    borderColor: '#EA580C',
+    borderColor: '#FF6B00',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -349,30 +458,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   helperLine1: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
+    width: 44,
+    height: 5,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 3,
     marginBottom: 6,
   },
   helperLine2: {
-    width: 24,
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 2,
+    width: 28,
+    height: 5,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 3,
   },
   helperTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
     textAlign: 'center',
     marginBottom: 6,
   },
   helperSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#64748B',
     textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 18,
   },
   categoryChipsScroll: {
     paddingBottom: 4,
@@ -382,15 +492,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     marginRight: 8,
   },
   categoryChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
   },
 });
