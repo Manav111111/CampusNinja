@@ -139,7 +139,7 @@ export default function HomeScreen({ navigation }) {
         {/* Top App Bar */}
         <View style={styles.header}>
           <View style={styles.brandContainer}>
-            <Image source={require('../../assets/splashicon.png')} style={{ width: 38, height: 38, resizeMode: 'contain', marginRight: 6 }} />
+            <Image source={require('../../assets/logo.png')} style={{ width: 38, height: 38, resizeMode: 'contain', marginRight: 6 }} />
             <Text style={styles.brandTitle}>Campus<Text style={{ color: COLORS.primary }}>Ninja</Text></Text>
           </View>
           <View style={styles.headerRight}>

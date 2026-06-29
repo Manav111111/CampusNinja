@@ -119,7 +119,7 @@ export default function OnboardingScreen({ navigation }) {
       
       {/* Fixed Logo Top Left */}
       <View style={styles.logoContainer}>
-        <Image source={require('../../assets/splashicon.png')} style={styles.logoTopLeft} />
+        <Image source={require('../../assets/logo.png')} style={styles.logoTopLeft} />
       </View>
 
       {/* FlatList for Slides */}

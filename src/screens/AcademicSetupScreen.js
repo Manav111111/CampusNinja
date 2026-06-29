@@ -121,7 +121,7 @@ export default function AcademicSetupScreen({ navigation }) {
         
         {/* App Logo */}
         <View style={styles.logoContainer}>
-          <Image source={require('../../assets/splashicon.png')} style={styles.logoImage} />
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} />
         </View>
 
         {/* Header Text */}

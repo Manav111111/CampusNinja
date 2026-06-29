@@ -48,11 +48,12 @@ const StepIndicator = ({ currentStep }) => (
   </View>
 );
 
-const stepLabels = ['Upload', 'Login', 'Details', 'Confirm'];
-
 export default function OrderRequestScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { service } = route.params;
+
+  const requiresUpload = service.requires_file_upload !== false;
+  const stepLabels = [requiresUpload ? 'Upload' : 'Requirements', 'Login', 'Details', 'Confirm'];
 
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -225,41 +226,59 @@ export default function OrderRequestScreen({ route, navigation }) {
 
   const renderStep1 = () => (
     <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Upload Your Questions</Text>
-      <Text style={styles.stepSubtitle}>Upload a PDF or image of your assignment/questions</Text>
+      {requiresUpload ? (
+        <>
+          <Text style={styles.stepTitle}>Upload Your Questions</Text>
+          <Text style={styles.stepSubtitle}>
+            {service.upload_instructions || 'Upload a PDF or image of your assignment/questions'}
+          </Text>
 
-      <TouchableOpacity style={styles.uploadArea} onPress={pickDocument}>
-        {selectedFile ? (
-          <View style={styles.fileSelected}>
-            <View style={styles.fileIconBg}>
-              <Ionicons name="document-text" size={28} color="#2563EB" />
-            </View>
-            <View style={styles.fileInfo}>
-              <Text style={styles.fileName} numberOfLines={1}>{selectedFile.name}</Text>
-              <Text style={styles.fileSize}>
-                {selectedFile.size ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'File selected'}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => setSelectedFile(null)}>
-              <Ionicons name="close-circle" size={24} color="#EF4444" />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.uploadPlaceholder}>
-            <View style={styles.uploadIconBg}>
-              <Ionicons name="cloud-upload-outline" size={32} color="#2563EB" />
-            </View>
-            <Text style={styles.uploadText}>Tap to Upload PDF / Image</Text>
-            <Text style={styles.uploadHint}>Supports PDF, JPG, PNG</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.uploadArea} onPress={pickDocument}>
+            {selectedFile ? (
+              <View style={styles.fileSelected}>
+                <View style={styles.fileIconBg}>
+                  <Ionicons name="document-text" size={28} color="#2563EB" />
+                </View>
+                <View style={styles.fileInfo}>
+                  <Text style={styles.fileName} numberOfLines={1}>{selectedFile.name}</Text>
+                  <Text style={styles.fileSize}>
+                    {selectedFile.size ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'File selected'}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setSelectedFile(null)}>
+                  <Ionicons name="close-circle" size={24} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.uploadPlaceholder}>
+                <View style={styles.uploadIconBg}>
+                  <Ionicons name="cloud-upload-outline" size={32} color="#2563EB" />
+                </View>
+                <Text style={styles.uploadText}>Tap to Upload PDF / Image</Text>
+                <Text style={styles.uploadHint}>Supports PDF, JPG, PNG</Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-      <Text style={[styles.stepTitle, { marginTop: 24 }]}>Instructions *</Text>
-      <Text style={styles.stepSubtitle}>How should the assignment be done?</Text>
+          <Text style={[styles.stepTitle, { marginTop: 24 }]}>Instructions *</Text>
+          <Text style={styles.stepSubtitle}>How should the assignment be done?</Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.stepTitle}>Requirements & Instructions</Text>
+          <Text style={styles.stepSubtitle}>
+            {service.upload_instructions || 'Please describe what you need or provide your order instructions below.'}
+          </Text>
+        </>
+      )}
+
       <TextInput
         style={styles.textArea}
-        placeholder="E.g., Handwritten, use black pen, include diagrams, deadline is 25th June..."
+        placeholder={
+          requiresUpload
+            ? "E.g., Handwritten, use black pen, include diagrams, deadline is 25th June..."
+            : "Describe your requirements in detail..."
+        }
         placeholderTextColor="#9CA3AF"
         multiline
         numberOfLines={6}
@@ -402,7 +421,7 @@ export default function OrderRequestScreen({ route, navigation }) {
             <Ionicons name="arrow-back" size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {currentStep === 1 ? 'Upload & Instructions' : 
+            {currentStep === 1 ? (requiresUpload ? 'Upload & Instructions' : 'Order Requirements') : 
              currentStep === 2 ? 'Sign In' :
              currentStep === 3 ? 'Your Details' : 'Confirm Order'}
           </Text>
