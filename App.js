@@ -1,10 +1,18 @@
-import React from 'react';
+import React, { createRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import AppNavigator from './src/navigation/AppNavigator';
 import { handleAuthCallback } from './src/services/auth';
+import useNotifications from './src/hooks/useNotifications';
+
+// ============================================================
+// NAVIGATION REF
+// Exported so the notification service can navigate from outside
+// React component tree (e.g., when app opens from terminated state).
+// ============================================================
+export const navigationRef = createRef();
 
 const linking = {
   prefixes: [Linking.createURL('/'), Linking.createURL(''), 'campusninja://'],
@@ -58,11 +66,25 @@ const linking = {
   },
 };
 
+// ============================================================
+// INNER APP COMPONENT
+// Wraps the navigator and initializes notifications.
+// Must be inside NavigationContainer so the navigationRef is bound.
+// ============================================================
+function AppInner() {
+  // Initialize the push notification system.
+  // This hook handles: permission, token registration, foreground display,
+  // tap navigation, token refresh, and auth-aware token save/remove.
+  const { expoPushToken, fcmToken } = useNotifications(navigationRef);
+
+  return <AppNavigator />;
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer linking={linking}>
-        <AppNavigator />
+      <NavigationContainer ref={navigationRef} linking={linking}>
+        <AppInner />
         <StatusBar style="dark" />
       </NavigationContainer>
     </SafeAreaProvider>

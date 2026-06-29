@@ -32,7 +32,15 @@
       "expo-web-browser",
       "expo-document-picker",
       "expo-dev-client",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo.png",
+          "color": "#FF6B00",
+          "defaultChannel": "campus-ninja-default"
+        }
+      ]
     ],
     "extra": {
       "eas": {
