@@ -1,20 +1,25 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 
 export default function QuickAccessCard({ title, iconName, iconColor, fullWidth, onPress }) {
   return (
     <TouchableOpacity 
-      style={[styles.container, fullWidth && styles.fullWidth]}
+      style={[
+        styles.container, 
+        fullWidth && styles.fullWidth
+      ]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      <View style={[styles.iconContainer, { backgroundColor: iconColor }]} >
-        <Ionicons name={iconName} size={24} color="#FFFFFF" />
+      <View style={[styles.iconContainer, { backgroundColor: iconColor || COLORS.primary }]} >
+        <Ionicons name={iconName} size={22} color="#FFFFFF" />
       </View>
-      <Text style={styles.title}>{title}</Text>
-      <Ionicons name="chevron-forward" size={16} color={COLORS.secondary} style={styles.chevron} />
+      <Text style={styles.title} numberOfLines={1}>{title}</Text>
+      <View style={styles.arrowCircle}>
+        <Ionicons name="arrow-forward" size={14} color={iconColor || COLORS.primary} />
+      </View>
     </TouchableOpacity>
   );
 }
@@ -23,14 +28,26 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     flex: 1,
     marginHorizontal: 6,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   fullWidth: {
     flex: undefined,
@@ -38,20 +55,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   title: {
     fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontWeight: '700',
+    color: '#1E293B',
     flex: 1,
   },
-  chevron: {
-    marginLeft: 8,
+  arrowCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
