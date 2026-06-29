@@ -268,7 +268,8 @@ export const getMarketplaceServices = async () => {
 };
 
 /**
- * Upload a PDF file for an order to Supabase Storage.
+ * Upload a PDF/image file for an order to Supabase Storage.
+ * Uses FormData with the file URI — the correct pattern for React Native.
  * @param {string} fileUri - Local file URI
  * @param {string} fileName - Original file name
  * @returns {Promise<string>} Public URL of the uploaded file
@@ -278,14 +279,29 @@ export const uploadOrderFile = async (fileUri, fileName) => {
   const uniqueName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
   const filePath = `orders/${uniqueName}`;
 
-  // Fetch the file as a blob
-  const response = await fetch(fileUri);
-  const blob = await response.blob();
+  // Determine content type from extension
+  const mimeTypes = {
+    pdf: 'application/pdf',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+  };
+  const contentType = mimeTypes[fileExt.toLowerCase()] || 'application/octet-stream';
+
+  // React Native: build FormData with the file URI directly
+  const formData = new FormData();
+  formData.append('', {
+    uri: fileUri,
+    name: uniqueName,
+    type: contentType,
+  });
 
   const { data, error } = await supabase.storage
     .from('order-files')
-    .upload(filePath, blob, {
-      contentType: 'application/pdf',
+    .upload(filePath, formData, {
+      contentType,
       upsert: false,
     });
 

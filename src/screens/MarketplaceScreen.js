@@ -140,17 +140,18 @@ export default function MarketplaceScreen({ navigation }) {
               >
                 {item.image_url ? (
                   <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} />
-                ) : null}
-                <View style={styles.bannerContent}>
-                  <Text style={[styles.bannerTitle, { color: item.image_url ? '#FFFFFF' : '#111827' }]}>{item.title}</Text>
-                  <Text style={[styles.bannerSubtitle, { color: item.image_url ? '#E0E7FF' : '#4B5563' }]}>{item.subtitle}</Text>
-                  {item.button_text ? (
-                    <View style={styles.bannerButton}>
-                      <Text style={styles.bannerButtonText}>{item.button_text}</Text>
-                      <Ionicons name="arrow-forward" size={14} color="#111827" />
-                    </View>
-                  ) : null}
-                </View>
+                ) : (
+                  <View style={styles.bannerContent}>
+                    <Text style={styles.bannerTitle}>{item.title}</Text>
+                    <Text style={styles.bannerSubtitle}>{item.subtitle}</Text>
+                    {item.button_text ? (
+                      <View style={styles.bannerButton}>
+                        <Text style={styles.bannerButtonText}>{item.button_text}</Text>
+                        <Ionicons name="arrow-forward" size={14} color="#111827" />
+                      </View>
+                    ) : null}
+                  </View>
+                )}
               </TouchableOpacity>
             )}
           />

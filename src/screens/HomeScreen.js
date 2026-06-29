@@ -194,20 +194,21 @@ export default function HomeScreen({ navigation }) {
               >
                 {item.image_url ? (
                   <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} />
-                ) : null}
-                <View style={styles.bannerContent}>
-                  <View style={styles.promoTag}>
-                    <Text style={styles.promoTagText}>🔥 FEATURED</Text>
-                  </View>
-                  <Text style={styles.bannerTitle}>{item.title}</Text>
-                  <Text style={styles.bannerSubtitle}>{item.subtitle}</Text>
-                  {item.button_text ? (
-                    <View style={styles.bannerButton}>
-                      <Text style={styles.bannerButtonText}>{item.button_text}</Text>
-                      <Ionicons name="arrow-forward" size={14} color="#1E293B" />
+                ) : (
+                  <View style={styles.bannerContent}>
+                    <View style={styles.promoTag}>
+                      <Text style={styles.promoTagText}>🔥 FEATURED</Text>
                     </View>
-                  ) : null}
-                </View>
+                    <Text style={styles.bannerTitle}>{item.title}</Text>
+                    <Text style={styles.bannerSubtitle}>{item.subtitle}</Text>
+                    {item.button_text ? (
+                      <View style={styles.bannerButton}>
+                        <Text style={styles.bannerButtonText}>{item.button_text}</Text>
+                        <Ionicons name="arrow-forward" size={14} color="#1E293B" />
+                      </View>
+                    ) : null}
+                  </View>
+                )}
               </TouchableOpacity>
             )}
           />
