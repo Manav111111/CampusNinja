@@ -53,6 +53,7 @@ const linking = {
       ServiceDetail: 'services/:serviceId',
       OrderRequest: 'orders/new',
       MyOrders: 'orders',
+      Support: 'support',
     },
   },
 };

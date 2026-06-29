@@ -172,6 +172,7 @@ export default function SkillsScreen({ navigation }) {
               key={item.id} 
               style={styles.pathCard}
               activeOpacity={0.7}
+              onPress={() => navigation.navigate('Subjects')}
             >
               <View style={[styles.iconContainer, { backgroundColor: item.bgColor }]}>
                 <Ionicons name={item.icon} size={24} color={item.iconColor} />
@@ -195,7 +196,7 @@ export default function SkillsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',

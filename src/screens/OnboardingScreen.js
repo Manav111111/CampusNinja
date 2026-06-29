@@ -5,7 +5,8 @@ import {
   View, 
   FlatList, 
   TouchableOpacity, 
-  Dimensions 
+  Dimensions,
+  Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ const slides = [
     titleLine1: 'Everything You Need',
     titleHighlight: 'For College',
     description: 'Access Notes, PYQs, Syllabus, Video Lectures and Important Questions in one place.',
+    image: require('../../assets/image1.png'),
     icons: [
       { id: '1', label: 'Notes', icon: 'document-text-outline', color: '#EA580C', pos: { left: '5%', top: '35%' } },
       { id: '2', label: 'PYQs', icon: 'document-outline', color: '#EA580C', pos: { left: '30%', top: '10%' } },
@@ -32,6 +34,7 @@ const slides = [
     titleLine1: 'Build Skills',
     titleHighlight: 'Beyond College',
     description: 'Discover curated roadmaps for DSA, Web Development, AI, Data Science and placements.',
+    image: require('../../assets/image2.png'),
     icons: [
       { id: '1', label: 'Web\nDevelopment', icon: 'globe-outline', color: '#EA580C', pos: { left: '10%', top: '35%' } },
       { id: '2', label: 'DSA', icon: 'code-slash-outline', color: '#EA580C', pos: { left: '40%', top: '10%' } },
@@ -45,6 +48,7 @@ const slides = [
     titleLine1: 'Join the',
     titleHighlight: 'Campus Ninja Community',
     description: 'Stay connected through YouTube, WhatsApp and student communities. Get guidance, updates and opportunities.',
+    image: require('../../assets/image3.png'),
     icons: [
       { id: '1', label: 'Instagram', icon: 'logo-instagram', color: '#DB2777', pos: { left: '20%', top: '60%' } },
       { id: '2', label: 'YouTube', icon: 'logo-youtube', color: '#EF4444', pos: { left: '20%', top: '20%' } },
@@ -81,8 +85,10 @@ export default function OnboardingScreen({ navigation }) {
       <View style={[styles.slideContainer, { width }]}>
         {/* Graphic Area */}
         <View style={styles.graphicContainer}>
-          {/* Central decorative element representing the human illustration */}
-          <View style={styles.centerGraphic} />
+          {/* Slide image in circle */}
+          <View style={styles.imageCircleWrap}>
+            <Image source={item.image} style={styles.centerGraphicImage} />
+          </View>
           
           {/* Floating Icons */}
           {item.icons.map((iconItem) => (
@@ -113,8 +119,7 @@ export default function OnboardingScreen({ navigation }) {
       
       {/* Fixed Logo Top Left */}
       <View style={styles.logoContainer}>
-        <View style={styles.logoC} />
-        <Text style={styles.logoN}>N</Text>
+        <Image source={require('../../assets/splashicon.png')} style={styles.logoTopLeft} />
       </View>
 
       {/* FlatList for Slides */}
@@ -169,35 +174,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 60,
-    height: 50,
     position: 'absolute',
-    top: 50, // rough estimate accounting for insets
+    top: 50,
     left: 20,
     zIndex: 10,
   },
-  logoC: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 8,
-    borderColor: '#FF6B00',
-    borderRightColor: 'transparent',
-    position: 'absolute',
-    left: 0,
-    transform: [{ rotate: '45deg' }]
-  },
-  logoN: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: '#222222',
-    position: 'absolute',
-    right: 4,
-    top: -10,
-    letterSpacing: -2,
+  logoTopLeft: {
+    width: 48,
+    height: 48,
+    resizeMode: 'contain',
   },
   slideContainer: {
     flex: 1,
@@ -212,12 +197,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginTop: 20,
   },
-  centerGraphic: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#F3F4F6', // Placeholder for the actual illustration
-    opacity: 0.8,
+  imageCircleWrap: {
+    width: 260,
+    height: 260,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerGraphicImage: {
+    width: 240,
+    height: 240,
+    resizeMode: 'contain',
   },
   arcLine: {
     position: 'absolute',

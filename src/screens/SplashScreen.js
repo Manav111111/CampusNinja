@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -76,10 +76,9 @@ export default function SplashScreen({ navigation }) {
       {/* Center Content */}
       <View style={styles.centerContent}>
         
-        {/* CN Logo - Built with pure React Native Text overlapping */}
+        {/* New Splash Icon Image */}
         <View style={styles.logoContainer}>
-          <View style={styles.logoC} />
-          <Text style={styles.logoN}>N</Text>
+          <Image source={require('../../assets/splashicon.png')} style={styles.logoImage} />
         </View>
 
         {/* Brand Name */}
@@ -212,36 +211,17 @@ const styles = StyleSheet.create({
   // Center Content
   centerContent: {
     alignItems: 'center',
-    marginTop: -80, // slightly elevate to balance bottom footer
+    marginTop: -40,
   },
   logoContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 160,
-    height: 120,
     marginBottom: 20,
   },
-  logoC: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 26,
-    borderColor: '#FF6B00',
-    borderRightColor: 'transparent',
-    position: 'absolute',
-    left: 0,
-    transform: [{ rotate: '45deg' }]
-  },
-  logoN: {
-    fontSize: 130,
-    fontWeight: '900',
-    color: '#222222',
-    position: 'absolute',
-    right: -10,
-    top: -24,
-    fontFamily: 'sans-serif', // Fallback font, uses system default
-    letterSpacing: -10,
+  logoImage: {
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
   },
   brandNameContainer: {
     flexDirection: 'row',

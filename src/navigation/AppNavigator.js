@@ -13,6 +13,7 @@ import SubjectDetailScreen from '../screens/SubjectDetailScreen';
 import ServiceDetailScreen from '../screens/ServiceDetailScreen';
 import OrderRequestScreen from '../screens/OrderRequestScreen';
 import MyOrdersScreen from '../screens/MyOrdersScreen';
+import SupportScreen from '../screens/SupportScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,6 +41,7 @@ export default function AppNavigator() {
       <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
       <Stack.Screen name="OrderRequest" component={OrderRequestScreen} />
       <Stack.Screen name="MyOrders" component={MyOrdersScreen} />
+      <Stack.Screen name="Support" component={SupportScreen} />
     </Stack.Navigator>
   );
 }

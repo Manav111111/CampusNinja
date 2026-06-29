@@ -8,7 +8,9 @@ import {
   Dimensions,
   Modal,
   FlatList,
-  ActivityIndicator
+  ActivityIndicator,
+  Image,
+  Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,35 +19,30 @@ import { getBranches, getSemesters } from '../services/supabase';
 
 const { width } = Dimensions.get('window');
 
-// A helper component to draw a 4x4 dot grid (reused from Splash Screen style)
-const DotGrid = ({ style }) => {
-  const renderRow = (key) => (
-    <View key={key} style={styles.dotRow}>
-      <View style={styles.dot} />
-      <View style={styles.dot} />
-      <View style={styles.dot} />
-      <View style={styles.dot} />
-    </View>
-  );
-
-  return (
-    <View style={[styles.dotGridContainer, style]}>
-      {[0, 1, 2, 3].map(renderRow)}
-    </View>
-  );
-};
-
-// Reusable component for the dropdown selector cards
-const SelectorCard = ({ label, placeholder, icon, value, onPress }) => (
-  <TouchableOpacity style={styles.selectorCard} activeOpacity={0.7} onPress={onPress}>
-    <View style={styles.selectorIconBg}>
-      <Ionicons name={icon} size={20} color="#EA580C" />
+// Premium Selector Card Component
+const SelectorCard = ({ label, placeholder, icon, value, onPress, disabled }) => (
+  <TouchableOpacity 
+    style={[
+      styles.selectorCard, 
+      value ? styles.selectorCardActive : styles.selectorCardInactive,
+      disabled && { opacity: 0.6 }
+    ]} 
+    activeOpacity={0.8} 
+    onPress={onPress}
+    disabled={disabled}
+  >
+    <View style={[styles.selectorIconBg, value && styles.selectorIconBgActive]}>
+      <Ionicons name={icon} size={22} color={value ? '#FFFFFF' : '#FF6B00'} />
     </View>
     <View style={styles.selectorTextContainer}>
       <Text style={styles.selectorLabel}>{label}</Text>
-      <Text style={styles.selectorPlaceholder}>{value || placeholder}</Text>
+      <Text style={[styles.selectorValue, !value && styles.selectorPlaceholder]}>
+        {value || placeholder}
+      </Text>
     </View>
-    <Ionicons name="chevron-down" size={20} color="#4B5563" />
+    <View style={[styles.chevronWrap, value && styles.chevronWrapActive]}>
+      <Ionicons name="chevron-down" size={18} color={value ? '#FF6B00' : '#94A3B8'} />
+    </View>
   </TouchableOpacity>
 );
 
@@ -98,15 +95,6 @@ export default function AcademicSetupScreen({ navigation }) {
       setLoading(false);
     }
   };
-  
-  // Hardcoded for UI demonstration based on the mockup
-  const features = [
-    { id: '1', label: 'Notes', icon: 'document-text-outline' },
-    { id: '2', label: 'PYQs', icon: 'clipboard-outline' },
-    { id: '3', label: 'Syllabus', icon: 'book-outline' },
-    { id: '4', label: 'Video\nLectures', icon: 'play-outline' },
-    { id: '5', label: 'Important\nQuestions', icon: 'star-outline' },
-  ];
 
   const handleContinue = async () => {
     if (selectedBranch && selectedSemester) {
@@ -119,59 +107,55 @@ export default function AcademicSetupScreen({ navigation }) {
         console.log('Error saving data', e);
       }
     }
-    navigation.replace('MainApp'); // Navigate to the Main App (Bottom Tabs)
+    navigation.replace('MainApp');
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       
-      {/* Background Decorations */}
-      <View style={styles.circleTopLeft1} />
-      <View style={styles.circleTopLeft2} />
-      <View style={styles.circleBottomRight1} />
-      <View style={styles.circleBottomRight2} />
-      <DotGrid style={styles.dotsTopRight} />
-      <DotGrid style={styles.dotsBottomLeft} />
+      {/* Subtle Background Glows */}
+      <View style={styles.topGlow} />
+      <View style={styles.bottomGlow} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* CN Logo */}
+        {/* App Logo */}
         <View style={styles.logoContainer}>
-          <View style={styles.logoC} />
-          <Text style={styles.logoN}>N</Text>
+          <Image source={require('../../assets/splashicon.png')} style={styles.logoImage} />
         </View>
 
         {/* Header Text */}
         <View style={styles.headerTextContainer}>
-          <Text style={styles.titleLine1}>Let's Personalize</Text>
-          <View style={styles.titleRow}>
-            <Text style={styles.titleLine2}>Your </Text>
-            <Text style={styles.titleHighlight}>Experience</Text>
+          <View style={styles.badgeContainer}>
+            <Ionicons name="sparkles" size={14} color="#FF6B00" style={{ marginRight: 6 }} />
+            <Text style={styles.badgeText}>TAILORED FOR YOU</Text>
           </View>
+          <Text style={styles.titleMain}>Let's Personalize</Text>
+          <Text style={styles.titleHighlight}>Your Experience ✨</Text>
           <Text style={styles.subtitle}>
-            Select your course, branch and semester to access the right study materials.
+            Choose your academic curriculum to instantly unlock notes, past papers, and tailored roadmaps.
           </Text>
         </View>
 
         {/* Dropdown Selectors */}
         <View style={styles.selectorsContainer}>
           <SelectorCard 
-            label="Course" 
-            placeholder="B.Tech (Fixed)" 
+            label="Academic Course" 
+            placeholder="B.Tech (Bachelor of Technology)" 
             icon="school-outline" 
             value="B.Tech"
             onPress={() => {}} 
           />
           <SelectorCard 
-            label="Branch" 
-            placeholder={loading && !branches.length ? "Loading..." : "Select Branch"} 
+            label="Engineering Branch" 
+            placeholder={loading && !branches.length ? "Loading branches..." : "Select your branch"} 
             icon="business-outline" 
             value={selectedBranch ? selectedBranch.name : ''}
             onPress={() => { setModalType('branch'); setModalVisible(true); }} 
           />
           <SelectorCard 
-            label="Semester" 
-            placeholder={loading && !semesters.length && selectedBranch ? "Loading..." : "Select Semester"} 
+            label="Current Semester" 
+            placeholder={loading && !semesters.length && selectedBranch ? "Loading semesters..." : "Select your semester"} 
             icon="calendar-outline" 
             value={selectedSemester ? `Semester ${selectedSemester.number}` : ''}
             onPress={() => { 
@@ -184,78 +168,73 @@ export default function AcademicSetupScreen({ navigation }) {
           />
         </View>
 
-        {/* Selection Summary Card */}
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryTopRow}>
-            <View style={styles.summaryIconBg}>
-              <Ionicons name="school-outline" size={32} color="#EA580C" />
-            </View>
-            <View style={styles.summaryDetails}>
-              <Text style={styles.summaryLabel}>Your Selection</Text>
-              <Text style={styles.summaryTitle}>{selectedBranch ? `B.Tech ${selectedBranch.name}` : 'Not Selected'}</Text>
-              <View style={styles.summaryPill}>
-                <Text style={styles.summaryPillText}>{selectedSemester ? `Semester ${selectedSemester.number}` : 'No Semester'}</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.featuresLabel}>You will get:</Text>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuresScroll}>
-            {features.map((item) => (
-              <View key={item.id} style={styles.featureBox}>
-                <View style={styles.featureIconContainer}>
-                  <Ionicons name={item.icon} size={24} color="#111827" />
-                </View>
-                <Text style={styles.featureText} numberOfLines={2} adjustsFontSizeToFit>{item.label}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
       </ScrollView>
 
-      {/* Bottom Action Buttons */}
+      {/* Bottom Action Button */}
       <View style={styles.bottomContainer}>
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue} activeOpacity={0.8}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+        <TouchableOpacity 
+          style={[
+            styles.continueButton,
+            (!selectedBranch || !selectedSemester) && styles.continueButtonDisabled
+          ]} 
+          onPress={handleContinue} 
+          activeOpacity={0.8}
+        >
+          <Text style={styles.continueButtonText}>Get Started</Text>
           <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.skipButton} onPress={handleContinue}>
-          <Text style={styles.skipButtonText}>Skip For Now</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Modal for Selection */}
-      <Modal visible={modalVisible} transparent animationType="slide">
+      {/* Selection Modal */}
+      <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select {modalType === 'branch' ? 'Branch' : 'Semester'}</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#111827" />
+              <View>
+                <Text style={styles.modalTitle}>Select {modalType === 'branch' ? 'Branch' : 'Semester'}</Text>
+                <Text style={styles.modalSubtitle}>Choose one option from below</Text>
+              </View>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={20} color="#4B5563" />
               </TouchableOpacity>
             </View>
             <FlatList
               data={modalType === 'branch' ? branches : semesters}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={styles.modalItem}
-                  onPress={() => {
-                    if (modalType === 'branch') setSelectedBranch(item);
-                    else setSelectedSemester(item);
-                    setModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.modalItemText}>
-                    {modalType === 'branch' ? item.name : `Semester ${item.number}`}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              keyExtractor={item => item.id.toString()}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              renderItem={({ item }) => {
+                const isSelected = modalType === 'branch' 
+                  ? selectedBranch?.id === item.id 
+                  : selectedSemester?.id === item.id;
+                return (
+                  <TouchableOpacity 
+                    style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      if (modalType === 'branch') setSelectedBranch(item);
+                      else setSelectedSemester(item);
+                      setModalVisible(false);
+                    }}
+                  >
+                    <View style={styles.modalItemLeft}>
+                      <View style={[styles.modalItemIcon, isSelected && styles.modalItemIconSelected]}>
+                        <Ionicons 
+                          name={modalType === 'branch' ? 'git-branch-outline' : 'book-outline'} 
+                          size={18} 
+                          color={isSelected ? '#FFFFFF' : '#FF6B00'} 
+                        />
+                      </View>
+                      <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
+                        {modalType === 'branch' ? item.name : `Semester ${item.number}`}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={22} color="#FF6B00" />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </View>
@@ -268,343 +247,261 @@ export default function AcademicSetupScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    position: 'relative',
-    overflow: 'hidden',
+    backgroundColor: '#FAFAFB',
   },
-  
-  // Background Circles
-  circleTopLeft1: {
+  topGlow: {
     position: 'absolute',
-    top: -width * 0.3,
-    left: -width * 0.3,
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: width * 0.4,
-    backgroundColor: '#F9FAFB',
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#FFF7ED',
+    opacity: 0.8,
   },
-  circleTopLeft2: {
+  bottomGlow: {
     position: 'absolute',
-    top: -width * 0.4,
-    left: -width * 0.4,
-    width: width * 1.1,
-    height: width * 1.1,
-    borderRadius: width * 0.55,
-    borderWidth: 40,
-    borderColor: '#F9FAFB',
+    bottom: -100,
+    left: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#FEF2F2',
+    opacity: 0.6,
   },
-  circleBottomRight1: {
-    position: 'absolute',
-    bottom: -width * 0.3,
-    right: -width * 0.3,
-    width: width * 0.8,
-    height: width * 0.8,
-    borderRadius: width * 0.4,
-    backgroundColor: '#F9FAFB',
-  },
-  circleBottomRight2: {
-    position: 'absolute',
-    bottom: -width * 0.4,
-    right: -width * 0.4,
-    width: width * 1.1,
-    height: width * 1.1,
-    borderRadius: width * 0.55,
-    borderWidth: 40,
-    borderColor: '#F9FAFB',
-  },
-
-  // Dot Grids
-  dotGridContainer: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    justifyContent: 'space-between',
-  },
-  dotsTopRight: {
-    top: 40,
-    right: 40,
-  },
-  dotsBottomLeft: {
-    bottom: 40,
-    left: 40,
-  },
-  dotRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-  },
-
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingHorizontal: 24,
+    paddingTop: 30,
     paddingBottom: 40,
   },
-
-  // Logo
   logoContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    width: 60,
-    height: 50,
-    alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
   },
-  logoC: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 8,
-    borderColor: '#FF6B00',
-    borderRightColor: 'transparent',
-    position: 'absolute',
-    left: 0,
-    transform: [{ rotate: '45deg' }]
+  logoImage: {
+    width: 80,
+    height: 80,
+    resizeMode: 'contain',
   },
-  logoN: {
-    fontSize: 40,
-    fontWeight: '900',
-    color: '#222222',
-    position: 'absolute',
-    right: 4,
-    top: -10,
-    letterSpacing: -2,
-  },
-
-  // Header
   headerTextContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 36,
   },
-  titleLine1: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#111827',
-  },
-  titleRow: {
+  badgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    marginBottom: 16,
   },
-  titleLine2: {
-    fontSize: 28,
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FF6B00',
+    letterSpacing: 1,
+  },
+  titleMain: {
+    fontSize: 30,
     fontWeight: '900',
     color: '#111827',
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   titleHighlight: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
     color: '#FF6B00',
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 15,
+    color: '#64748B',
     textAlign: 'center',
-    marginTop: 12,
-    paddingHorizontal: 16,
-    lineHeight: 20,
+    lineHeight: 22,
+    paddingHorizontal: 10,
   },
-
-  // Selectors
   selectorsContainer: {
-    marginBottom: 24,
+    gap: 16,
   },
   selectorCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    padding: 16,
     borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
+  selectorCardInactive: {
+    borderColor: '#F1F5F9',
+  },
+  selectorCardActive: {
+    borderColor: '#FF6B00',
+    backgroundColor: '#FFFAF5',
+  },
   selectorIconBg: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     backgroundColor: '#FFF7ED',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
+  },
+  selectorIconBgActive: {
+    backgroundColor: '#FF6B00',
   },
   selectorTextContainer: {
     flex: 1,
   },
   selectorLabel: {
     fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 2,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  selectorValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   selectorPlaceholder: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
+    color: '#64748B',
+    fontWeight: '500',
   },
-
-  // Summary Card
-  summaryCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-  },
-  summaryTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  summaryIconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FFEDD5',
+  chevronWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
-  summaryDetails: {
-    flex: 1,
+  chevronWrapActive: {
+    backgroundColor: '#FFF7ED',
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  summaryTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  summaryPill: {
-    backgroundColor: '#FFEDD5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  summaryPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#EA580C',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 16,
-  },
-  featuresLabel: {
-    fontSize: 13,
-    color: '#4B5563',
-    marginBottom: 12,
-  },
-  featuresScroll: {
-    paddingBottom: 4,
-  },
-  featureBox: {
-    alignItems: 'center',
-    width: 64,
-    marginRight: 12,
-  },
-  featureIconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  featureText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#111827',
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-
-  // Bottom Controls
   bottomContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-    backgroundColor: 'transparent',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   continueButton: {
     flexDirection: 'row',
     backgroundColor: '#FF6B00',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 14,
+    paddingVertical: 18,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  continueButtonDisabled: {
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   continueButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
     marginRight: 8,
   },
-  skipButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  skipButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    padding: 20,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    maxHeight: '65%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalItem: {
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    marginBottom: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  modalItemSelected: {
+    backgroundColor: '#FFF7ED',
+    borderColor: '#FFEDD5',
+  },
+  modalItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  modalItemIconSelected: {
+    backgroundColor: '#FF6B00',
   },
   modalItemText: {
     fontSize: 16,
-    color: '#4B5563',
+    fontWeight: '600',
+    color: '#334155',
+  },
+  modalItemTextSelected: {
+    color: '#0F172A',
+    fontWeight: '700',
   },
 });

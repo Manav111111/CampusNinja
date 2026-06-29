@@ -167,9 +167,9 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Academic Information */}
         <SectionGroup title="ACADEMIC INFORMATION">
-          <MenuRow label="Course Degree" icon="school" iconColor="#3B82F6" value="B.Tech" />
-          <MenuRow label="Enrolled Branch" icon="business" iconColor="#F97316" value={branchName} />
-          <MenuRow label="Current Semester" icon="calendar" iconColor="#10B981" value={`Semester ${semesterNum}`} />
+          <MenuRow label="Course Degree" icon="school" iconColor="#3B82F6" value="B.Tech" onPress={() => navigation.navigate('AcademicSetup')} />
+          <MenuRow label="Enrolled Branch" icon="business" iconColor="#F97316" value={branchName} onPress={() => navigation.navigate('AcademicSetup')} />
+          <MenuRow label="Current Semester" icon="calendar" iconColor="#10B981" value={`Semester ${semesterNum}`} onPress={() => navigation.navigate('AcademicSetup')} />
           <MenuRow 
             label="Change Academic Setup" 
             icon="create" 
@@ -192,13 +192,13 @@ export default function ProfileScreen({ navigation }) {
           <MenuRow label="Join WhatsApp Community" icon="logo-whatsapp" iconColor="#10B981" onPress={() => openURL('https://chat.whatsapp.com')} />
           <MenuRow label="Subscribe on YouTube" icon="logo-youtube" iconColor="#EF4444" onPress={() => openURL('https://youtube.com')} />
           <MenuRow label="Follow on Instagram" icon="logo-instagram" iconColor="#E1306C" onPress={() => openURL('https://instagram.com')} />
-          <MenuRow label="Help & FAQs" icon="help-circle" iconColor="#6366F1" onPress={() => {}} isLast />
+          <MenuRow label="Help & FAQs" icon="help-circle" iconColor="#6366F1" onPress={() => navigation.navigate('Support', { section: 'FAQ' })} isLast />
         </SectionGroup>
 
         {/* About App */}
         <SectionGroup title="ABOUT CAMPUS NINJA">
-          <MenuRow label="Privacy Policy" icon="shield" iconColor="#64748B" onPress={() => {}} />
-          <MenuRow label="Terms of Service" icon="document-text" iconColor="#64748B" onPress={() => {}} />
+          <MenuRow label="Privacy Policy" icon="shield" iconColor="#64748B" onPress={() => navigation.navigate('Support', { section: 'Privacy' })} />
+          <MenuRow label="Terms of Service" icon="document-text" iconColor="#64748B" onPress={() => navigation.navigate('Support', { section: 'Terms' })} />
           <MenuRow label="App Version" icon="information-circle" iconColor="#94A3B8" value="v1.0.0" isLast />
         </SectionGroup>
 
