@@ -4,42 +4,49 @@ import {
   Text, 
   View, 
   ScrollView, 
-  TouchableOpacity,
-  Image,
-  Dimensions,
-  ActivityIndicator
+  TouchableOpacity, 
+  Image, 
+  Dimensions, 
+  ActivityIndicator,
+  Platform,
+  Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
+import { COLORS } from '../constants/colors';
 import { supabase } from '../services/supabase';
 import { performGoogleLogin, handleLogout, getCurrentSession } from '../services/auth';
 
 const { width } = Dimensions.get('window');
 
-// Reusable component for the side-by-side card lists
-const GridListCard = ({ title, titleIcon, titleIconColor, items }) => (
-  <View style={styles.gridCardContainer}>
-    <View style={styles.gridCardHeader}>
-      <Ionicons name={titleIcon} size={18} color={titleIconColor} style={styles.gridCardTitleIcon} />
-      <Text style={styles.gridCardTitle} numberOfLines={1}>{title}</Text>
+const MenuRow = ({ label, icon, iconColor, iconBg, value, onPress, isLast, isDestructive }) => (
+  <TouchableOpacity
+    style={[styles.menuRow, isLast && styles.menuRowLast]}
+    onPress={onPress}
+    activeOpacity={onPress ? 0.7 : 1}
+  >
+    <View style={styles.menuRowLeft}>
+      <View style={[styles.menuIconBg, { backgroundColor: iconBg || (iconColor + '18') }]}>
+        <Ionicons name={icon} size={18} color={iconColor || COLORS.primary} />
+      </View>
+      <Text style={[styles.menuLabel, isDestructive && { color: '#EF4444' }]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
-    <View style={styles.gridCardBody}>
-      {items.map((item, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.gridItemRow}
-          onPress={item.onPress}
-          activeOpacity={item.onPress ? 0.7 : 1}
-        >
-          <View style={[styles.gridItemIconBg, { backgroundColor: item.bg }]}>
-            <Ionicons name={item.icon} size={16} color={item.color} />
-          </View>
-          <Text style={styles.gridItemText} numberOfLines={1}>{item.label}</Text>
-          <Ionicons name="chevron-forward" size={14} color="#9CA3AF" />
-        </TouchableOpacity>
-      ))}
+    <View style={styles.menuRowRight}>
+      {value ? <Text style={styles.menuValue}>{value}</Text> : null}
+      {onPress && <Ionicons name="chevron-forward" size={16} color="#94A3B8" style={{ marginLeft: 6 }} />}
+    </View>
+  </TouchableOpacity>
+);
+
+const SectionGroup = ({ title, children }) => (
+  <View style={styles.sectionGroupContainer}>
+    {title ? <Text style={styles.sectionGroupTitle}>{title}</Text> : null}
+    <View style={styles.sectionGroupCard}>
+      {children}
     </View>
   </View>
 );
@@ -98,40 +105,34 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const openURL = (url) => {
+    Linking.openURL(url).catch(() => {});
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-
-      {/* Header */}
+      
+      {/* Top Header matching HomeScreen */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
-        <View style={styles.headerIcons}>
+        <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
+            <Ionicons name="notifications-outline" size={22} color="#1E293B" />
             <View style={styles.notificationBadge} />
-            <Ionicons name="notifications-outline" size={24} color="#111827" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="settings-outline" size={24} color="#111827" />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
-        {/* User Info Hero Card */}
+        
+        {/* Hero User Card */}
         <View style={styles.heroCard}>
-          {/* Abstract decoration to simulate the graphic */}
-          <View style={styles.heroDecorationCircle1} />
-          <View style={styles.heroDecorationCircle2} />
-
-          <View style={styles.heroProfileRow}>
+          <View style={styles.heroRow}>
             {user && user.user_metadata?.avatar_url ? (
-              <Image
-                source={{ uri: user.user_metadata.avatar_url }}
-                style={styles.avatar}
-              />
+              <Image source={{ uri: user.user_metadata.avatar_url }} style={styles.avatar} />
             ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Ionicons name="person" size={40} color="#EA580C" />
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={38} color={COLORS.primary} />
               </View>
             )}
 
@@ -139,152 +140,76 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.heroName} numberOfLines={1}>
                 {user ? (user.user_metadata?.full_name || 'Student') : 'Guest Student'}
               </Text>
-              {user && (
-                <Text style={styles.heroEmail} numberOfLines={1}>{user.email}</Text>
-              )}
+              <Text style={styles.heroSubtext} numberOfLines={1}>
+                {user ? user.email : 'Login to sync resources & orders'}
+              </Text>
               
-              <View style={styles.activeBadge}>
-                <Ionicons name="checkmark-circle-outline" size={14} color="#059669" style={styles.badgeIcon} />
-                <Text style={styles.badgeText}>Academic Profile Active</Text>
+              <View style={styles.statusBadge}>
+                <Ionicons name="shield-checkmark" size={14} color="#059669" />
+                <Text style={styles.statusBadgeText}>Verified Academic Profile</Text>
               </View>
             </View>
           </View>
 
-          {!user ? (
-            <TouchableOpacity style={styles.googleAuthButton} onPress={handleLogin} disabled={loadingAuth}>
+          {!user && (
+            <TouchableOpacity style={styles.googleButton} onPress={handleLogin} disabled={loadingAuth} activeOpacity={0.8}>
               {loadingAuth ? (
-                <ActivityIndicator color="#111827" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <>
-                  <Ionicons name="logo-google" size={18} color="#111827" style={styles.googleIcon} />
-                  <Text style={styles.googleAuthText}>Continue with Google</Text>
+                  <Ionicons name="logo-google" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.googleButtonText}>Sign In with Google</Text>
                 </>
               )}
             </TouchableOpacity>
-          ) : null}
-
+          )}
         </View>
 
-        {/* Academic Information Section */}
-        <View style={styles.sectionHeader}>
-          <Ionicons name="school-outline" size={20} color="#FF6B00" style={styles.sectionHeaderIcon} />
-          <Text style={styles.sectionTitle}>Academic Information</Text>
-        </View>
-        <View style={styles.infoCard}>
-          <TouchableOpacity style={styles.infoRow}>
-            <View style={styles.infoRowLeft}>
-              <View style={[styles.infoIconBg, { backgroundColor: '#FFEDD5' }]}>
-                <Ionicons name="book-outline" size={18} color="#EA580C" />
-              </View>
-              <Text style={styles.infoLabel}>Course</Text>
-            </View>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoValue}>B.Tech</Text>
-              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={styles.infoChevron} />
-            </View>
-          </TouchableOpacity>
-          
-          <View style={styles.divider} />
-          
-          <TouchableOpacity style={styles.infoRow}>
-            <View style={styles.infoRowLeft}>
-              <View style={[styles.infoIconBg, { backgroundColor: '#FFEDD5' }]}>
-                <Ionicons name="business-outline" size={18} color="#EA580C" />
-              </View>
-              <Text style={styles.infoLabel}>Branch</Text>
-            </View>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoValue}>{branchName}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={styles.infoChevron} />
-            </View>
-          </TouchableOpacity>
-          
-          <View style={styles.divider} />
-          
-          <TouchableOpacity style={styles.infoRow}>
-            <View style={styles.infoRowLeft}>
-              <View style={[styles.infoIconBg, { backgroundColor: '#FFEDD5' }]}>
-                <Ionicons name="calendar-outline" size={18} color="#EA580C" />
-              </View>
-              <Text style={styles.infoLabel}>Semester</Text>
-            </View>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoValue}>Semester {semesterNum}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" style={styles.infoChevron} />
-            </View>
-          </TouchableOpacity>
-          
-          <View style={styles.divider} />
-
-          <TouchableOpacity style={styles.infoRowOrange} onPress={() => navigation.navigate('AcademicSetup')}>
-            <View style={styles.infoRowLeft}>
-              <View style={[styles.infoIconBg, { backgroundColor: '#FFF7ED' }]}>
-                <Ionicons name="document-text-outline" size={18} color="#EA580C" />
-              </View>
-              <Text style={styles.infoLabelOrange}>Change Academic Setup</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color="#111827" />
-          </TouchableOpacity>
-        </View>
-
-        {/* 2-Column Grid Layout */}
-        <View style={styles.gridContainer}>
-          {/* Row 1 */}
-          <GridListCard 
-            title="My Resources" 
-            titleIcon="folder-outline" 
-            titleIconColor="#EA580C"
-            items={[
-              { label: 'My Orders', icon: 'cart-outline', color: '#8B5CF6', bg: '#F3E8FF', onPress: () => navigation.navigate('MyOrders') },
-              { label: 'Saved Resources', icon: 'bookmark-outline', color: '#EF4444', bg: '#FEE2E2' },
-              { label: 'Bookmarks', icon: 'bookmark-outline', color: '#F59E0B', bg: '#FEF3C7' },
-              { label: 'Recent Downloads', icon: 'time-outline', color: '#3B82F6', bg: '#DBEAFE' },
-            ]}
+        {/* Academic Information */}
+        <SectionGroup title="ACADEMIC INFORMATION">
+          <MenuRow label="Course Degree" icon="school" iconColor="#3B82F6" value="B.Tech" />
+          <MenuRow label="Enrolled Branch" icon="business" iconColor="#F97316" value={branchName} />
+          <MenuRow label="Current Semester" icon="calendar" iconColor="#10B981" value={`Semester ${semesterNum}`} />
+          <MenuRow 
+            label="Change Academic Setup" 
+            icon="create" 
+            iconColor={COLORS.primary} 
+            iconBg="#FFF7ED"
+            onPress={() => navigation.navigate('AcademicSetup')}
+            isLast 
           />
-          <GridListCard 
-            title="Community" 
-            titleIcon="people-outline" 
-            titleIconColor="#EA580C"
-            items={[
-              { label: 'WhatsApp Community', icon: 'logo-whatsapp', color: '#10B981', bg: '#D1FAE5' },
-              { label: 'YouTube Channel', icon: 'logo-youtube', color: '#EF4444', bg: '#FEE2E2' },
-              { label: 'Instagram Page', icon: 'logo-instagram', color: '#DB2777', bg: '#FCE7F3' },
-            ]}
-          />
-        </View>
+        </SectionGroup>
 
-        <View style={styles.gridContainer}>
-          {/* Row 2 */}
-          <GridListCard 
-            title="Support" 
-            titleIcon="headset-outline" 
-            titleIconColor="#EA580C"
-            items={[
-              { label: 'Help Center', icon: 'help-circle-outline', color: '#3B82F6', bg: '#DBEAFE' },
-              { label: 'Contact Support', icon: 'chatbubble-ellipses-outline', color: '#10B981', bg: '#D1FAE5' },
-              { label: 'Report Issue', icon: 'warning-outline', color: '#EF4444', bg: '#FEE2E2' },
-              { label: 'FAQs', icon: 'document-text-outline', color: '#8B5CF6', bg: '#F3E8FF' },
-            ]}
-          />
-          <GridListCard 
-            title="About Campus Ninja" 
-            titleIcon="information-circle-outline" 
-            titleIconColor="#EA580C"
-            items={[
-              { label: 'About Us', icon: 'people-outline', color: '#3B82F6', bg: '#DBEAFE' },
-              { label: 'Privacy Policy', icon: 'shield-checkmark-outline', color: '#10B981', bg: '#D1FAE5' },
-              { label: 'Terms & Conditions', icon: 'document-text-outline', color: '#EA580C', bg: '#FFEDD5' },
-              { label: 'Version 1.0.0', icon: 'information-circle-outline', color: '#6B7280', bg: '#F3F4F6' },
-            ]}
-          />
-        </View>
+        {/* My Resources */}
+        <SectionGroup title="MY RESOURCES & ORDERS">
+          <MenuRow label="My Orders" icon="cart" iconColor="#8B5CF6" onPress={() => navigation.navigate('MyOrders')} />
+          <MenuRow label="Saved Notes & PYQs" icon="bookmark" iconColor="#EC4899" onPress={() => navigation.navigate('Subjects')} />
+          <MenuRow label="Recent Downloads" icon="download" iconColor="#3B82F6" onPress={() => navigation.navigate('Subjects')} isLast />
+        </SectionGroup>
 
-        {/* Logout Button */}
+        {/* Community & Support */}
+        <SectionGroup title="COMMUNITY & SUPPORT">
+          <MenuRow label="Join WhatsApp Community" icon="logo-whatsapp" iconColor="#10B981" onPress={() => openURL('https://chat.whatsapp.com')} />
+          <MenuRow label="Subscribe on YouTube" icon="logo-youtube" iconColor="#EF4444" onPress={() => openURL('https://youtube.com')} />
+          <MenuRow label="Follow on Instagram" icon="logo-instagram" iconColor="#E1306C" onPress={() => openURL('https://instagram.com')} />
+          <MenuRow label="Help & FAQs" icon="help-circle" iconColor="#6366F1" onPress={() => {}} isLast />
+        </SectionGroup>
+
+        {/* About App */}
+        <SectionGroup title="ABOUT CAMPUS NINJA">
+          <MenuRow label="Privacy Policy" icon="shield" iconColor="#64748B" onPress={() => {}} />
+          <MenuRow label="Terms of Service" icon="document-text" iconColor="#64748B" onPress={() => {}} />
+          <MenuRow label="App Version" icon="information-circle" iconColor="#94A3B8" value="v1.0.0" isLast />
+        </SectionGroup>
+
+        {/* Logout */}
         {user && (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color="#EA580C" style={styles.logoutIcon} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
+          <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+              <Ionicons name="log-out-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+              <Text style={styles.logoutText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
       </ScrollView>
@@ -295,285 +220,221 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F8FAFC', // Matching HomeScreen
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FAFAFA',
+    paddingVertical: 14,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
-  headerIcons: {
+  headerRight: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   iconButton: {
-    padding: 8,
-    marginLeft: 8,
-    position: 'relative',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   notificationBadge: {
     position: 'absolute',
-    top: 6,
-    right: 8,
+    top: 10,
+    right: 10,
+    backgroundColor: '#EF4444',
+    borderRadius: 4,
     width: 8,
     height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EA580C',
-    zIndex: 1,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   scrollContent: {
     paddingBottom: 40,
   },
   heroCard: {
     marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFF7ED',
+    marginTop: 6,
+    marginBottom: 20,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     padding: 20,
-    position: 'relative',
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  heroDecorationCircle1: {
-    position: 'absolute',
-    top: -20,
-    right: -20,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFEDD5',
-    opacity: 0.7,
-  },
-  heroDecorationCircle2: {
-    position: 'absolute',
-    bottom: 20,
-    right: -40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#FFEDD5',
-    opacity: 0.5,
-  },
-  heroProfileRow: {
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    zIndex: 1,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
     marginRight: 16,
   },
   avatarPlaceholder: {
-    backgroundColor: '#FFEDD5',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFF7ED',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#FFEDD5',
   },
   heroDetails: {
     flex: 1,
   },
   heroName: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
   },
-  heroEmail: {
+  heroSubtext: {
     fontSize: 13,
-    color: '#4B5563',
-    marginTop: 2,
+    color: '#64748B',
+    marginBottom: 10,
+    fontWeight: '500',
   },
-  activeBadge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
-    marginTop: 8,
     alignSelf: 'flex-start',
   },
-  badgeIcon: {
-    marginRight: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#059669',
-  },
-  googleAuthButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingVertical: 12,
-    zIndex: 1,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  googleIcon: {
-    marginRight: 8,
-  },
-  googleAuthText: {
-    color: '#111827',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 12,
-  },
-  sectionHeaderIcon: {
-    marginRight: 8,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  infoCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    overflow: 'hidden',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  infoRowOrange: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFaf0',
-  },
-  infoRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: '#4B5563',
-  },
-  infoLabelOrange: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#EA580C',
-  },
-  infoRowRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  infoChevron: {
-    marginLeft: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginLeft: 60,
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 24,
-  },
-  gridCardContainer: {
-    width: (width - 48) / 2,
-  },
-  gridCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  gridCardTitleIcon: {
-    marginRight: 6,
-  },
-  gridCardTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111827',
-    flexShrink: 1,
-  },
-  gridCardBody: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    padding: 12,
-    paddingBottom: 4,
-  },
-  gridItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  gridItemIconBg: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  gridItemText: {
-    flex: 1,
+  statusBadgeText: {
     fontSize: 11,
-    color: '#111827',
-    marginRight: 4,
+    fontWeight: '700',
+    color: '#059669',
+    marginLeft: 6,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginTop: 18,
+  },
+  googleButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  sectionGroupContainer: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+  },
+  sectionGroupTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+    marginBottom: 8,
+    letterSpacing: 0.8,
+    paddingLeft: 4,
+  },
+  sectionGroupCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  menuRowLast: {
+    borderBottomWidth: 0,
+  },
+  menuRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  menuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    flex: 1,
+  },
+  menuRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 16,
-    marginTop: 32,
-    marginBottom: 16,
+    backgroundColor: '#FEF2F2',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EA580C',
-    backgroundColor: '#FFFFFF',
-  },
-  logoutIcon: {
-    marginRight: 8,
+    borderColor: '#FEE2E2',
+    marginBottom: 20,
   },
   logoutText: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: '#EA580C',
+    fontWeight: '700',
+    color: '#EF4444',
   },
 });
