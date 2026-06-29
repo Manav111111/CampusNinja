@@ -107,7 +107,7 @@ export const getAllSubjects = async () => {
     .from('subjects')
     .select('*')
     .eq('is_active', true)
-    .order('title', { ascending: true });
+    .order('sort_order', { ascending: true });
 
   if (error) {
     console.error('Error fetching all subjects:', error);

@@ -4,7 +4,13 @@
 -- Run this in the Supabase SQL Editor (Dashboard → SQL Editor).
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS device_tokens (
+-- Drop existing table/policies if they exist (clean slate)
+DROP POLICY IF EXISTS "Users can manage own tokens" ON device_tokens;
+DROP POLICY IF EXISTS "Service role can read all tokens" ON device_tokens;
+DROP TABLE IF EXISTS device_tokens;
+
+-- Create the table fresh
+CREATE TABLE device_tokens (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
@@ -14,10 +20,10 @@ CREATE TABLE IF NOT EXISTS device_tokens (
 );
 
 -- Index for fast lookups by user (used when sending notifications)
-CREATE INDEX IF NOT EXISTS idx_device_tokens_user_id ON device_tokens(user_id);
+CREATE INDEX idx_device_tokens_user_id ON device_tokens(user_id);
 
 -- Index for fast lookups/upserts by token
-CREATE INDEX IF NOT EXISTS idx_device_tokens_token ON device_tokens(token);
+CREATE INDEX idx_device_tokens_token ON device_tokens(token);
 
 -- Enable Row Level Security
 ALTER TABLE device_tokens ENABLE ROW LEVEL SECURITY;
