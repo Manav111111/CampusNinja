@@ -25,9 +25,9 @@ const fallbackSubjects = [
 ];
 
 const fallbackMarketplace = [
-  { id: 'm-1', title: 'Custom College Assignments', price: '149', category: 'Assignments', badge: '⚡ 24h Delivery', color: '#3B82F6' },
-  { id: 'm-2', title: 'Complete Lab Manual Solutions', price: '99', category: 'Lab Manuals', badge: '⭐ Verified', color: '#10B981' },
-  { id: 'm-3', title: 'Final Year Minor / Major Projects', price: '499', category: 'Projects', badge: '🔥 Best Seller', color: '#F97316' },
+  { id: 'm-1', title: 'Custom College Assignments', price: '149', category: 'Assignments', badge: '⚡ 24h Delivery', color: '#3B82F6', icon: 'document-text' },
+  { id: 'm-2', title: 'Complete Lab Manual Solutions', price: '99', category: 'Lab Manuals', badge: '⭐ Verified', color: '#10B981', icon: 'flask' },
+  { id: 'm-3', title: 'Final Year Minor / Major Projects', price: '499', category: 'Projects', badge: '🔥 Best Seller', color: '#F97316', icon: 'laptop' },
 ];
 
 const SectionHeader = ({ title, subtitle, showViewAll = false, onViewAll }) => (
@@ -310,21 +310,37 @@ export default function HomeScreen({ navigation }) {
               activeOpacity={0.9}
               onPress={() => marketplaceItems.length > 0 ? navigation.navigate('ServiceDetail', { service: item }) : navigation.navigate('Marketplace')}
             >
-              <View style={styles.marketCardHeader}>
-                <View style={[styles.marketCategoryBadge, { backgroundColor: (item.color || COLORS.primary) + '15' }]}>
-                  <Text style={[styles.marketCategoryText, { color: item.color || COLORS.primary }]}>
-                    {item.category || 'Academic Service'}
-                  </Text>
-                </View>
-                <Text style={styles.marketPrice}>₹{item.price}</Text>
+              {/* Product Image / Illustration Thumbnail */}
+              <View style={[styles.marketThumbContainer, { backgroundColor: (item.color || COLORS.primary) + '15' }]}>
+                {item.thumbnail_url || item.image_url ? (
+                  <Image source={{ uri: item.thumbnail_url || item.image_url }} style={styles.marketThumbImage} />
+                ) : (
+                  <View style={styles.marketThumbPlaceholder}>
+                    <Ionicons name={item.icon || 'briefcase'} size={36} color={item.color || COLORS.primary} />
+                    <View style={[styles.marketThumbBadge, { backgroundColor: item.color || COLORS.primary }]}>
+                      <Text style={styles.marketThumbBadgeText}>PRO</Text>
+                    </View>
+                  </View>
+                )}
               </View>
-              
-              <Text style={styles.marketTitle} numberOfLines={2}>{item.title}</Text>
-              
-              <View style={styles.marketFooter}>
-                <Text style={styles.marketBadgeText}>{item.badge || '⚡ Fast Delivery'}</Text>
-                <View style={styles.buyButton}>
-                  <Text style={styles.buyButtonText}>Order</Text>
+
+              <View style={styles.marketCardContent}>
+                <View style={styles.marketCardHeader}>
+                  <View style={[styles.marketCategoryBadge, { backgroundColor: (item.color || COLORS.primary) + '15' }]}>
+                    <Text style={[styles.marketCategoryText, { color: item.color || COLORS.primary }]}>
+                      {item.category || 'Academic Service'}
+                    </Text>
+                  </View>
+                  <Text style={styles.marketPrice}>₹{item.price}</Text>
+                </View>
+                
+                <Text style={styles.marketTitle} numberOfLines={2}>{item.title}</Text>
+                
+                <View style={styles.marketFooter}>
+                  <Text style={styles.marketBadgeText}>{item.badge || '⚡ Fast Delivery'}</Text>
+                  <View style={styles.buyButton}>
+                    <Text style={styles.buyButtonText}>Order</Text>
+                  </View>
                 </View>
               </View>
             </TouchableOpacity>
@@ -610,30 +626,65 @@ const styles = StyleSheet.create({
   },
   marketplaceCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    width: 230,
-    marginRight: 14,
+    borderRadius: 22,
+    width: 250,
+    marginRight: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    justifyContent: 'space-between',
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 14,
       },
       android: {
-        elevation: 2,
+        elevation: 4,
       },
     }),
+  },
+  marketThumbContainer: {
+    height: 120,
+    width: '100%',
+    position: 'relative',
+  },
+  marketThumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  marketThumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  marketThumbBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  marketThumbBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  marketCardContent: {
+    padding: 16,
+    justifyContent: 'space-between',
+    flex: 1,
   },
   marketCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   marketCategoryBadge: {
     paddingHorizontal: 10,
@@ -645,15 +696,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   marketPrice: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
     color: '#0F172A',
   },
   marketTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: '#1E293B',
-    lineHeight: 20,
+    lineHeight: 22,
     marginBottom: 16,
   },
   marketFooter: {
@@ -661,7 +712,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
+    borderTopColor: '#F1F5F9',
     paddingTop: 12,
   },
   marketBadgeText: {
@@ -670,14 +721,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buyButton: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 10,
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   buyButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
