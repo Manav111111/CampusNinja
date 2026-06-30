@@ -165,8 +165,15 @@ export default function SubjectDetailScreen({ route, navigation }) {
     return resources.filter(res => res.type === tabId).length;
   };
 
-  const handleShare = () => {
-    Alert.alert('Share Subject', `Share resources for ${subject.name || subject.title} with your classmates.`);
+  const handleShareSubject = async () => {
+    try {
+      const subjectLabel = subject?.name || subject?.title || 'Study Material';
+      await Share.share({
+        message: `Check out ${subjectLabel} resources on CampusNinja!`,
+      });
+    } catch (e) {
+      console.log('Error sharing subject:', e);
+    }
   };
 
   const toggleBookmark = () => {
@@ -231,7 +238,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
     }
   };
 
-  const handleShare = async (item) => {
+  const handleShareResource = async (item) => {
     if (!item.targetUrl) {
       Alert.alert('Share Error', 'No URL available to share for this resource.');
       return;
@@ -316,7 +323,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
             <View style={styles.videoSecondaryActions}>
               <TouchableOpacity 
                 style={styles.videoIconButton}
-                onPress={() => handleShare(item)}
+                onPress={() => handleShareResource(item)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Ionicons name="share-social-outline" size={20} color="#64748B" />
@@ -367,7 +374,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
         <View style={styles.cardActions}>
           <TouchableOpacity 
             style={styles.actionIconButton}
-            onPress={() => handleShare(item)}
+            onPress={() => handleShareResource(item)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="share-social-outline" size={20} color="#64748B" />
@@ -434,7 +441,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={handleShare}
+            onPress={handleShareSubject}
           >
             <Ionicons name="share-social-outline" size={22} color="#111827" />
           </TouchableOpacity>
