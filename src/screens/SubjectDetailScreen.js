@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -7,19 +7,25 @@ import {
   TouchableOpacity, 
   FlatList,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  RefreshControl,
+  Linking,
+  Image,
+  Share
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/colors';
 import { getResources } from '../services/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const tabs = [
+  { id: 'syllabus', label: 'Syllabus', icon: 'newspaper-outline' },
   { id: 'notes', label: 'Notes', icon: 'document-text-outline' },
   { id: 'pyqs', label: 'PYQs', icon: 'layers-outline' },
   { id: 'videos', label: 'Videos', icon: 'play-circle-outline' },
-  { id: 'syllabus', label: 'Syllabus', icon: 'newspaper-outline' },
   { id: 'important', label: 'Important Questions', icon: 'star-outline' },
   { id: 'ai', label: 'AI Resources', icon: 'sparkles-outline' },
 ];
@@ -28,7 +34,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { subject } = route.params || { 
     subject: { 
-      title: 'Physics', 
+      title: 'Subject Details', 
       iconColor: '#2563EB', 
       bgColor: '#EFF6FF', 
       folderColor: '#DBEAFE' 
@@ -36,19 +42,39 @@ export default function SubjectDetailScreen({ route, navigation }) {
   };
 
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [activeTab, setActiveTab] = useState('notes');
+  const [activeTab, setActiveTab] = useState(route?.params?.initialTab || 'syllabus');
   const [downloadedItems, setDownloadedItems] = useState({});
   const [downloadingItems, setDownloadingItems] = useState({});
+  const [savedResourceIds, setSavedResourceIds] = useState(new Set());
   
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [branchName, setBranchName] = useState('B.Tech');
   const [semesterNum, setSemesterNum] = useState('');
 
+  useFocusEffect(
+    useCallback(() => {
+      loadResources();
+      loadSavedState();
+    }, [subject?.id])
+  );
+
   useEffect(() => {
-    loadResources();
     loadAcademicInfo();
-  }, [subject]);
+  }, []);
+
+  const loadSavedState = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('saved_resources');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setSavedResourceIds(new Set(parsed.map(r => r.id)));
+      }
+    } catch (e) {
+      console.log('Error loading saved resources:', e);
+    }
+  };
 
   const loadAcademicInfo = async () => {
     try {
@@ -61,64 +87,270 @@ export default function SubjectDetailScreen({ route, navigation }) {
     }
   };
 
-  const loadResources = async () => {
+  const loadResources = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
       if (subject?.id) {
         const data = await getResources(subject.id);
-        const mappedData = (data || []).map(r => ({
-           ...r,
-           type: r.type ? r.type.toLowerCase() : 'notes',
-           title: r.title,
-           subtitle: r.description || 'Study Material',
-           icon: r.icon_name || 'document-text',
-           iconColor: '#2563EB',
-           bgColor: '#EFF6FF',
-        }));
+        const mappedData = (data || []).map(r => {
+          let normType = r.type ? r.type.toLowerCase() : 'notes';
+          if (normType === 'pyq') normType = 'pyqs';
+          if (normType === 'video') normType = 'videos';
+          if (normType === 'important_questions') normType = 'important';
+          if (normType === 'ai_resources') normType = 'ai';
+
+          const targetUrl = r.file_url || r.drive_url || r.youtube_url || r.external_url || '';
+
+          let icon = 'document-text';
+          let iconColor = '#2563EB';
+          let bgColor = '#EFF6FF';
+          if (normType === 'videos') {
+            icon = 'play-circle';
+            iconColor = '#EF4444';
+            bgColor = '#FEE2E2';
+          } else if (normType === 'pyqs') {
+            icon = 'layers';
+            iconColor = '#8B5CF6';
+            bgColor = '#F3E8FF';
+          } else if (normType === 'syllabus') {
+            icon = 'newspaper';
+            iconColor = '#10B981';
+            bgColor = '#D1FAE5';
+          } else if (normType === 'important') {
+            icon = 'star';
+            iconColor = '#F59E0B';
+            bgColor = '#FEF3C7';
+          } else if (normType === 'ai') {
+            icon = 'sparkles';
+            iconColor = '#EC4899';
+            bgColor = '#FCE7F3';
+          }
+
+          return {
+            ...r,
+            type: normType,
+            title: r.title,
+            subtitle: r.description || `${normType.toUpperCase()} Material`,
+            icon,
+            iconColor,
+            bgColor,
+            targetUrl,
+            subjectTitle: subject.name || subject.title,
+          };
+        });
         setResources(mappedData);
+
+        // If active tab has 0 items and syllabus also has 0, auto-switch to first tab with items
+        if (mappedData.length > 0) {
+          const syllabusCount = mappedData.filter(r => r.type === 'syllabus').length;
+          if (syllabusCount === 0 && activeTab === 'syllabus') {
+            const firstAvailable = tabs.find(t => mappedData.some(r => r.type === t.id));
+            if (firstAvailable) setActiveTab(firstAvailable.id);
+          }
+        }
       }
     } catch (e) {
       console.log(e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const filteredResources = resources.filter(res => res.type === activeTab);
 
+  const getTabCount = (tabId) => {
+    return resources.filter(res => res.type === tabId).length;
+  };
+
   const handleShare = () => {
-    Alert.alert('Share Subject', `Share resources for ${subject.title} with your classmates.`);
+    Alert.alert('Share Subject', `Share resources for ${subject.name || subject.title} with your classmates.`);
   };
 
   const toggleBookmark = () => {
     setIsBookmarked(!isBookmarked);
+    Alert.alert(
+      !isBookmarked ? 'Subject bookmarked' : 'Subject removed',
+      !isBookmarked ? 'Added to your bookmarks.' : 'Removed from your bookmarks.'
+    );
   };
 
-  const handleDownload = (itemId, itemTitle) => {
-    if (downloadedItems[itemId]) {
-      Alert.alert('File Downloaded', `"${itemTitle}" is already downloaded and available offline.`);
+  const toggleSaveResource = async (item) => {
+    try {
+      const stored = await AsyncStorage.getItem('saved_resources');
+      let currentSaved = stored ? JSON.parse(stored) : [];
+      const exists = currentSaved.some(r => r.id === item.id);
+
+      if (exists) {
+        currentSaved = currentSaved.filter(r => r.id !== item.id);
+        savedResourceIds.delete(item.id);
+        setSavedResourceIds(new Set(savedResourceIds));
+      } else {
+        currentSaved.push({
+          id: item.id,
+          title: item.title,
+          subtitle: item.subtitle,
+          type: item.type,
+          targetUrl: item.targetUrl,
+          subjectTitle: subject.name || subject.title,
+          icon: item.icon,
+          iconColor: item.iconColor,
+          bgColor: item.bgColor,
+        });
+        setSavedResourceIds(new Set([...savedResourceIds, item.id]));
+      }
+
+      await AsyncStorage.setItem('saved_resources', JSON.stringify(currentSaved));
+    } catch (e) {
+      console.log('Error toggling saved resource:', e);
+    }
+  };
+
+  const extractYouTubeId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const handleResourcePress = async (item) => {
+    if (!item.targetUrl) {
+      Alert.alert('No Link Available', 'This resource does not have an attached file or URL.');
       return;
     }
-
-    // Simulate download progress
-    setDownloadingItems(prev => ({ ...prev, [itemId]: true }));
-    setTimeout(() => {
-      setDownloadingItems(prev => ({ ...prev, [itemId]: false }));
-      setDownloadedItems(prev => ({ ...prev, [itemId]: true }));
-      Alert.alert('Download Complete', `"${itemTitle}" has been saved to your downloads.`);
-    }, 1500);
+    try {
+      if (item.type === 'videos' || item.storage_type === 'youtube' || item.youtube_url) {
+        await Linking.openURL(item.targetUrl);
+      } else {
+        await WebBrowser.openBrowserAsync(item.targetUrl);
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Unable to open resource link.');
+    }
   };
 
-  // Helper to render resource items
+  const handleShare = async (item) => {
+    if (!item.targetUrl) {
+      Alert.alert('Share Error', 'No URL available to share for this resource.');
+      return;
+    }
+    try {
+      const subjectLabel = subject?.name || subject?.title || 'Study Material';
+      await Share.share({
+        message: `${item.title || ''} (${subjectLabel}) study material from CampusNinja:\n${item.targetUrl}`,
+        url: item.targetUrl,
+      });
+    } catch (e) {
+      console.log('Error sharing resource:', e);
+    }
+  };
+
+  const handleDownload = async (item) => {
+    if (!item.targetUrl) {
+      Alert.alert('Download Error', 'No downloadable link available for this resource.');
+      return;
+    }
+    setDownloadingItems(prev => ({ ...prev, [item.id]: true }));
+    try {
+      await Linking.openURL(item.targetUrl);
+      setDownloadedItems(prev => ({ ...prev, [item.id]: true }));
+      Alert.alert(
+        'Download Initiated',
+        'The file is downloading directly to your device Downloads folder without taking up duplicate app storage.'
+      );
+    } catch (e) {
+      Alert.alert('Download Failed', 'Could not open download link.');
+    } finally {
+      setDownloadingItems(prev => ({ ...prev, [item.id]: false }));
+    }
+  };
+
+  const renderVideoCard = (item) => {
+    const isSaved = savedResourceIds.has(item.id);
+    const videoId = extractYouTubeId(item.targetUrl || item.youtube_url);
+    const thumbUrl = item.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null);
+
+    return (
+      <TouchableOpacity 
+        key={item.id} 
+        style={styles.videoCard}
+        activeOpacity={0.8}
+        onPress={() => handleResourcePress(item)}
+      >
+        <View style={styles.videoThumbnailContainer}>
+          {thumbUrl ? (
+            <Image source={{ uri: thumbUrl }} style={styles.videoThumbnail} resizeMode="cover" />
+          ) : (
+            <View style={[styles.videoThumbnailPlaceholder, { backgroundColor: '#1E293B' }]}>
+              <Ionicons name="videocam" size={40} color="#64748B" />
+            </View>
+          )}
+          
+          <View style={styles.videoPlayOverlay}>
+            <View style={styles.playButtonCircle}>
+              <Ionicons name="play" size={26} color="#FFFFFF" style={{ marginLeft: 3 }} />
+            </View>
+          </View>
+
+          <View style={styles.youtubeBadge}>
+            <Ionicons name="logo-youtube" size={14} color="#EF4444" />
+            <Text style={styles.youtubeBadgeText}>YouTube</Text>
+          </View>
+        </View>
+
+        <View style={styles.videoContent}>
+          <Text style={styles.videoTitle} numberOfLines={2}>{item.title}</Text>
+          {item.subtitle ? <Text style={styles.videoSubtitle} numberOfLines={1}>{item.subtitle}</Text> : null}
+
+          <View style={styles.videoActions}>
+            <TouchableOpacity 
+              style={styles.watchButton}
+              onPress={() => handleResourcePress(item)}
+            >
+              <Ionicons name="play-circle" size={18} color="#FFFFFF" />
+              <Text style={styles.watchButtonText}>Watch on YouTube</Text>
+            </TouchableOpacity>
+
+            <View style={styles.videoSecondaryActions}>
+              <TouchableOpacity 
+                style={styles.videoIconButton}
+                onPress={() => handleShare(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="share-social-outline" size={20} color="#64748B" />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.videoIconButton}
+                onPress={() => toggleSaveResource(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={20} color={isSaved ? "#EC4899" : "#64748B"} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const renderResourceCard = (item) => {
+    if (item.type === 'videos' || item.storage_type === 'youtube') {
+      return renderVideoCard(item);
+    }
+
     const isDownloaded = downloadedItems[item.id];
     const isDownloading = downloadingItems[item.id];
+    const isSaved = savedResourceIds.has(item.id);
 
     return (
       <TouchableOpacity 
         key={item.id} 
         style={styles.resourceCard}
         activeOpacity={0.7}
+        onPress={() => handleResourcePress(item)}
       >
         <View style={[styles.iconContainer, { backgroundColor: item.bgColor }]}>
           <Ionicons name={item.icon} size={24} color={item.iconColor} />
@@ -127,21 +359,43 @@ export default function SubjectDetailScreen({ route, navigation }) {
         <View style={styles.textContainer}>
           <Text style={styles.cardTitle}>{item.title}</Text>
           <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+          {item.file_size ? (
+            <Text style={styles.metaSizeText}>{item.file_size} • {item.file_format || item.storage_type.replace('_', ' ')}</Text>
+          ) : null}
         </View>
 
-        <TouchableOpacity 
-          style={styles.downloadButton}
-          onPress={() => handleDownload(item.id, item.title)}
-          disabled={isDownloading}
-        >
-          {isDownloading ? (
-            <Ionicons name="sync" size={22} color="#94A3B8" style={styles.spin} />
-          ) : isDownloaded ? (
-            <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-          ) : (
-            <Ionicons name="download-outline" size={22} color="#2563EB" />
-          )}
-        </TouchableOpacity>
+        <View style={styles.cardActions}>
+          <TouchableOpacity 
+            style={styles.actionIconButton}
+            onPress={() => handleShare(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="share-social-outline" size={20} color="#64748B" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionIconButton}
+            onPress={() => toggleSaveResource(item)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={20} color={isSaved ? "#EC4899" : "#94A3B8"} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.downloadButton}
+            onPress={() => handleDownload(item)}
+            disabled={isDownloading}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color="#2563EB" />
+            ) : isDownloaded ? (
+              <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+            ) : (
+              <Ionicons name="download-outline" size={22} color="#2563EB" />
+            )}
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -187,7 +441,17 @@ export default function SubjectDetailScreen({ route, navigation }) {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadResources(true)}
+            colors={[COLORS.primary]}
+          />
+        }
+      >
         
         {/* Dynamic Hero Banner */}
         <View style={[styles.bannerContainer, { backgroundColor: subject.theme_color || subject.iconColor || '#2563EB' }]}>
@@ -198,7 +462,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
           <View style={styles.bannerContent}>
             <Text style={styles.bannerTitle}>{subject.name || subject.title}</Text>
             <View style={styles.bannerBadge}>
-              <Text style={styles.bannerBadgeText}>Semester 1</Text>
+              <Text style={styles.bannerBadgeText}>{semesterNum || 'Semester'}</Text>
             </View>
             <Text style={styles.bannerDescription}>
               Everything you need for your {subject.name || subject.title} exam.
@@ -210,8 +474,8 @@ export default function SubjectDetailScreen({ route, navigation }) {
                 <Text style={styles.metaText}>{resources.length} Items Available</Text>
               </View>
               <View style={styles.metaCapsule}>
-                <Ionicons name="time-outline" size={14} color="#FFFFFF" style={styles.metaIcon} />
-                <Text style={styles.metaText}>Last Updated 2 Days Ago</Text>
+                <Ionicons name="bookmark" size={14} color="#FFFFFF" style={styles.metaIcon} />
+                <Text style={styles.metaText}>{savedResourceIds.size} Saved</Text>
               </View>
             </View>
           </View>
@@ -226,6 +490,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
+              const count = getTabCount(tab.id);
               return (
                 <TouchableOpacity
                   key={tab.id}
@@ -245,7 +510,7 @@ export default function SubjectDetailScreen({ route, navigation }) {
                     styles.tabText,
                     isActive ? styles.tabTextActive : styles.tabTextInactive
                   ]}>
-                    {tab.label}
+                    {tab.label} {count > 0 ? `(${count})` : ''}
                   </Text>
                 </TouchableOpacity>
               );
@@ -504,11 +769,138 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
+  metaSizeText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 3,
+    fontWeight: '500',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionIconButton: {
+    width: 34,
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 2,
+  },
   downloadButton: {
     width: 36,
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  videoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    marginBottom: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  videoThumbnailContainer: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#0F172A',
+    position: 'relative',
+  },
+  videoThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  videoThumbnailPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  playButtonCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(239, 68, 68, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  youtubeBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  youtubeBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  videoContent: {
+    padding: 16,
+  },
+  videoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 21,
+    marginBottom: 4,
+  },
+  videoSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 14,
+  },
+  videoActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  watchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  watchButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  videoSecondaryActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  videoIconButton: {
+    padding: 8,
+    marginLeft: 4,
   },
   emptyTabContainer: {
     alignItems: 'center',

@@ -151,22 +151,51 @@ export const getResources = async (subjectId) => {
     return [];
   }
 
+  // 1. Fetch current subject info to get matching subjects across all branches
+  const { data: currentSub } = await supabase
+    .from('subjects')
+    .select('name, semester_id')
+    .eq('id', subjectId)
+    .single();
+
+  let subjectIds = [subjectId];
+  if (currentSub) {
+    const { data: matchingSubs } = await supabase
+      .from('subjects')
+      .select('id')
+      .eq('name', currentSub.name)
+      .eq('semester_id', currentSub.semester_id);
+
+    if (matchingSubs && matchingSubs.length > 0) {
+      subjectIds = matchingSubs.map(s => s.id);
+    }
+  }
+
   const { data, error } = await supabase
     .from('resources')
     .select('*')
-    .eq('subject_id', subjectId)
+    .in('subject_id', subjectIds)
     .eq('is_active', true)
-    .order('sort_order', { ascending: true });
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching resources:', error);
     throw error;
   }
-  return data;
+
+  // Deduplicate by title + type so students don't see exact duplicates
+  const seen = new Set();
+  return (data || []).filter(item => {
+    const key = `${item.title.trim().toLowerCase()}_${item.type}_${item.file_url || item.drive_url || item.youtube_url || item.external_url || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 /**
- * Fetch resources filtered by type for a subject.
+ * Fetch resources filtered by type for a subject across all branches teaching that subject.
  * @param {string} subjectId - UUID of the subject
  * @param {string} type - notes | pyq | video | syllabus | important_questions | ai_resources
  * @returns {Promise<Array>} Filtered resources
@@ -177,19 +206,46 @@ export const getResourcesByType = async (subjectId, type) => {
     return [];
   }
 
+  const { data: currentSub } = await supabase
+    .from('subjects')
+    .select('name, semester_id')
+    .eq('id', subjectId)
+    .single();
+
+  let subjectIds = [subjectId];
+  if (currentSub) {
+    const { data: matchingSubs } = await supabase
+      .from('subjects')
+      .select('id')
+      .eq('name', currentSub.name)
+      .eq('semester_id', currentSub.semester_id);
+
+    if (matchingSubs && matchingSubs.length > 0) {
+      subjectIds = matchingSubs.map(s => s.id);
+    }
+  }
+
   const { data, error } = await supabase
     .from('resources')
     .select('*')
-    .eq('subject_id', subjectId)
+    .in('subject_id', subjectIds)
     .eq('type', type)
     .eq('is_active', true)
-    .order('sort_order', { ascending: true });
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error(`Error fetching ${type} resources:`, error);
     throw error;
   }
-  return data;
+
+  const seen = new Set();
+  return (data || []).filter(item => {
+    const key = `${item.title.trim().toLowerCase()}_${item.type}_${item.file_url || item.drive_url || item.youtube_url || item.external_url || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 /**
@@ -283,6 +339,33 @@ export const getMarketplaceServices = async () => {
     throw error;
   }
   return data;
+};
+
+/**
+ * Fetch dynamic delivery fee and free delivery threshold from settings table.
+ * @returns {Promise<{deliveryFee: number, freeDeliveryThreshold: number}>}
+ */
+export const getDeliverySettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['delivery_fee', 'free_delivery_threshold']);
+
+    let deliveryFee = 49;
+    let freeDeliveryThreshold = 499;
+
+    if (data && data.length > 0) {
+      data.forEach(item => {
+        if (item.key === 'delivery_fee') deliveryFee = parseInt(item.value, 10) ?? 49;
+        if (item.key === 'free_delivery_threshold') freeDeliveryThreshold = parseInt(item.value, 10) ?? 499;
+      });
+    }
+    return { deliveryFee, freeDeliveryThreshold };
+  } catch (err) {
+    console.log('Using default delivery settings:', err);
+    return { deliveryFee: 49, freeDeliveryThreshold: 499 };
+  }
 };
 
 /**

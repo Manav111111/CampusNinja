@@ -13,66 +13,66 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
-import { getBanners } from '../services/supabase';
+import { getBanners, getSkills } from '../services/supabase';
 
 const { width } = Dimensions.get('window');
 
-const learningPaths = [
+const fallbackSkills = [
   {
     id: '1',
-    title: 'Data Structures & Algorithms',
-    subtitle: 'Placement Preparation • Problem Solving',
+    name: 'Data Structures & Algorithms',
+    difficulty_level: 'intermediate',
+    theme_color: '#8B5CF6',
     icon: 'hardware-chip-outline',
-    iconColor: '#8B5CF6',
-    bgColor: '#F3E8FF',
+    description: 'Placement Preparation • Problem Solving',
   },
   {
     id: '2',
-    title: 'Web Development',
-    subtitle: 'Frontend • Backend • MERN Stack',
+    name: 'Web Development',
+    difficulty_level: 'beginner',
+    theme_color: '#2563EB',
     icon: 'laptop-outline',
-    iconColor: '#2563EB',
-    bgColor: '#DBEAFE',
+    description: 'Frontend • Backend • MERN Stack',
   },
   {
     id: '3',
-    title: 'Generative AI',
-    subtitle: 'Prompt Engineering • LLMs',
+    name: 'Generative AI',
+    difficulty_level: 'advanced',
+    theme_color: '#10B981',
     icon: 'logo-android',
-    iconColor: '#10B981',
-    bgColor: '#D1FAE5',
+    description: 'Prompt Engineering • LLMs',
   },
   {
     id: '4',
-    title: 'Agentic AI',
-    subtitle: 'AI Agents • Workflows • Automation',
+    name: 'Agentic AI',
+    difficulty_level: 'advanced',
+    theme_color: '#F59E0B',
     icon: 'settings-outline',
-    iconColor: '#F59E0B',
-    bgColor: '#FEF3C7',
+    description: 'AI Agents • Workflows • Automation',
   },
   {
     id: '5',
-    title: 'Data Science',
-    subtitle: 'Python • Machine Learning • Deep Learning',
+    name: 'Data Science',
+    difficulty_level: 'intermediate',
+    theme_color: '#D97706',
     icon: 'bar-chart-outline',
-    iconColor: '#D97706',
-    bgColor: '#FFEDD5',
+    description: 'Python • Machine Learning • Deep Learning',
   },
   {
     id: '6',
-    title: 'Cloud Computing',
-    subtitle: 'AWS • DevOps • Deployment',
+    name: 'Cloud Computing',
+    difficulty_level: 'intermediate',
+    theme_color: '#06B6D4',
     icon: 'cloud-outline',
-    iconColor: '#06B6D4',
-    bgColor: '#CFFAFE',
+    description: 'AWS • DevOps • Deployment',
   },
   {
     id: '7',
-    title: 'UI/UX Design',
-    subtitle: 'Design Systems • Figma',
+    name: 'UI/UX Design',
+    difficulty_level: 'beginner',
+    theme_color: '#DB2777',
     icon: 'color-palette-outline',
-    iconColor: '#DB2777',
-    bgColor: '#FCE7F3',
+    description: 'Design Systems • Figma',
   },
 ];
 
@@ -80,19 +80,25 @@ export default function SkillsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const [banners, setBanners] = useState([]);
+  const [skills, setSkills] = useState([]);
 
   useEffect(() => {
     if (isFocused) {
-      loadBanners();
+      loadData();
     }
   }, [isFocused]);
 
-  const loadBanners = async () => {
+  const loadData = async () => {
     try {
-      const data = await getBanners('skills');
-      setBanners(data || []);
+      const [bannersData, skillsData] = await Promise.all([
+        getBanners('skills').catch(() => []),
+        getSkills().catch(() => [])
+      ]);
+      setBanners(bannersData || []);
+      setSkills(skillsData && skillsData.length > 0 ? skillsData : fallbackSkills);
     } catch (error) {
       console.error(error);
+      setSkills(fallbackSkills);
     }
   };
 
@@ -100,6 +106,12 @@ export default function SkillsScreen({ navigation }) {
     if (url) {
       Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
     }
+  };
+
+  const getSkillIcon = (skill, index) => {
+    if (skill.icon) return skill.icon;
+    const icons = ['hardware-chip-outline', 'laptop-outline', 'logo-android', 'settings-outline', 'bar-chart-outline', 'cloud-outline', 'color-palette-outline'];
+    return icons[index % icons.length];
   };
 
   return (
@@ -168,25 +180,29 @@ export default function SkillsScreen({ navigation }) {
 
         {/* Learning Paths List */}
         <View style={styles.listContainer}>
-          {learningPaths.map((item) => (
-            <TouchableOpacity 
-              key={item.id} 
-              style={styles.pathCard}
-              activeOpacity={0.7}
-              onPress={() => navigation.navigate('Subjects')}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: item.bgColor }]}>
-                <Ionicons name={item.icon} size={24} color={item.iconColor} />
-              </View>
-              
-              <View style={styles.textContainer}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-              </View>
+          {skills.map((item, index) => {
+            const themeColor = item.theme_color || '#8B5CF6';
+            const iconName = getSkillIcon(item, index);
+            return (
+              <TouchableOpacity 
+                key={item.id || index.toString()} 
+                style={styles.pathCard}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate('SkillDetail', { skill: item })}
+              >
+                <View style={[styles.iconContainer, { backgroundColor: themeColor + '20' }]}>
+                  <Ionicons name={iconName} size={24} color={themeColor} />
+                </View>
+                
+                <View style={styles.textContainer}>
+                  <Text style={styles.cardTitle}>{item.name || item.title}</Text>
+                  <Text style={styles.cardSubtitle}>{item.description || item.subtitle || `${item.difficulty_level || 'General'} Level Path`}</Text>
+                </View>
 
-              <Ionicons name="chevron-forward" size={20} color="#2563EB" style={styles.chevron} />
-            </TouchableOpacity>
-          ))}
+                <Ionicons name="chevron-forward" size={20} color={themeColor} style={styles.chevron} />
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
       </ScrollView>

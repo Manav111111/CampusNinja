@@ -50,11 +50,10 @@ export default function useNotifications(navigationRef) {
         setExpoPushToken(result.expoPushToken);
         setFcmToken(result.fcmToken);
 
-        // If user is already logged in, save the token immediately
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user?.id && result.fcmToken) {
-            await saveDeviceToken(session.user.id, result.fcmToken, result.platform);
+          if (result.fcmToken) {
+            await saveDeviceToken(session?.user?.id || null, result.fcmToken, result.platform);
           }
         } catch (error) {
           console.log('⚠️ [useNotifications] Could not check session on init:', error.message);
@@ -86,8 +85,14 @@ export default function useNotifications(navigationRef) {
     // Fires when user taps a notification (foreground, background,
     // or from the terminated state notification tray).
     // ──────────────────────────────────────────────────────────
+    const processedResponseIds = new Set();
+
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
+        const id = response?.notification?.request?.identifier;
+        if (id && processedResponseIds.has(id)) return;
+        if (id) processedResponseIds.add(id);
+
         console.log('👆 [useNotifications] Notification tapped');
         handleNotificationResponse(response, navigationRef);
       }
@@ -100,15 +105,15 @@ export default function useNotifications(navigationRef) {
     // ──────────────────────────────────────────────────────────
     tokenRefreshListener.current = Notifications.addPushTokenListener(
       async (newToken) => {
-        console.log('🔄 [useNotifications] Push token refreshed:', newToken.data);
+        const rawToken = newToken?.data;
+        if (!rawToken) return;
+        console.log('🔄 [useNotifications] Push token refreshed:', rawToken);
         if (isMounted) {
-          setFcmToken(newToken.data);
-
           try {
+            setFcmToken(rawToken);
+
             const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user?.id) {
-              await saveDeviceToken(session.user.id, newToken.data, 'android');
-            }
+            await saveDeviceToken(session?.user?.id || null, rawToken, 'android');
           } catch (error) {
             console.log('⚠️ [useNotifications] Token refresh save failed:', error.message);
           }
@@ -159,6 +164,10 @@ export default function useNotifications(navigationRef) {
     // ──────────────────────────────────────────────────────────
     Notifications.getLastNotificationResponseAsync().then((lastResponse) => {
       if (lastResponse && isMounted) {
+        const id = lastResponse?.notification?.request?.identifier;
+        if (id && processedResponseIds.has(id)) return;
+        if (id) processedResponseIds.add(id);
+
         console.log('🚀 [useNotifications] App opened from killed state via notification');
         // Small delay to ensure navigation is ready
         setTimeout(() => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -6,102 +6,113 @@ import {
   FlatList, 
   TouchableOpacity, 
   Platform,
-  Alert 
+  Alert,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/colors';
-
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: '1',
-    title: '🎉 Welcome to Campus Ninja v1.0!',
-    message: 'Your all-in-one academic companion is ready. Check out the new Marketplace for instant lab & assignment help.',
-    time: '2 hours ago',
-    type: 'system',
-    unread: true,
-    icon: 'rocket',
-    color: '#3B82F6',
-    bg: '#DBEAFE',
-  },
-  {
-    id: '2',
-    title: '⚡ Order #104 Confirmed',
-    message: 'We have received your request for "Engineering Drawing Sheets". A ninja expert has been assigned.',
-    time: '5 hours ago',
-    type: 'order',
-    unread: true,
-    icon: 'cart',
-    color: '#8B5CF6',
-    bg: '#F3E8FF',
-  },
-  {
-    id: '3',
-    title: '📚 New PYQs Uploaded',
-    message: 'Previous 5 year solved question papers for Semester 2 Applied Mathematics are now available.',
-    time: '1 day ago',
-    type: 'academic',
-    unread: false,
-    icon: 'document-text',
-    color: '#F97316',
-    bg: '#FFEDD5',
-  },
-  {
-    id: '4',
-    title: '🔥 Mid-Sem Exam Alert',
-    message: 'Prepare faster with our concise 1-page revision formula notes. Best of luck for your exams!',
-    time: '2 days ago',
-    type: 'academic',
-    unread: false,
-    icon: 'flame',
-    color: '#EF4444',
-    bg: '#FEE2E2',
-  },
-  {
-    id: '5',
-    title: '🎁 WhatsApp Community Invite',
-    message: 'Join 5,000+ engineers from your campus on WhatsApp for daily job alerts, notes & doubts discussion.',
-    time: '3 days ago',
-    type: 'system',
-    unread: false,
-    icon: 'logo-whatsapp',
-    color: '#10B981',
-    bg: '#D1FAE5',
-  },
-];
+import { supabase } from '../services/supabase';
 
 export default function NotificationsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
-  const [activeTab, setActiveTab] = useState('All'); // All, Orders, Academic
+  const [notifications, setNotifications] = useState([]);
+  const [readIds, setReadIds] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredNotifications = notifications.filter((item) => {
-    if (activeTab === 'All') return true;
-    if (activeTab === 'Orders') return item.type === 'order';
-    if (activeTab === 'Academic') return item.type === 'academic';
-    return true;
-  });
+  const fetchNotifications = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  };
+    try {
+      // Get stored read IDs
+      const storedReads = await AsyncStorage.getItem('readNotificationIds');
+      const parsedReads = storedReads ? new Set(JSON.parse(storedReads)) : new Set();
+      setReadIds(parsedReads);
 
-  const deleteNotification = (id) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
+      const branchId = await AsyncStorage.getItem('userBranchId');
+      const semesterId = await AsyncStorage.getItem('userSemesterId');
 
-  const handleNotificationPress = (item) => {
-    // Mark as read
-    setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n)));
-    
-    // Navigate based on type
-    if (item.type === 'order') {
-      navigation.navigate('MyOrders');
-    } else if (item.type === 'academic') {
-      navigation.navigate('Subjects');
-    } else {
-      Alert.alert(item.title, item.message);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error fetching notifications:', error.message);
+      } else if (data) {
+        // Filter notifications applicable to user
+        const applicable = data.filter((item) => {
+          const matchBranch = !item.target_branch_id || item.target_branch_id === branchId;
+          const matchSemester = !item.target_semester_id || item.target_semester_id === semesterId;
+          return matchBranch && matchSemester;
+        });
+
+        // Format for UI
+        const formatted = applicable.map((item) => {
+          const date = new Date(item.created_at);
+          const timeAgo = formatTimeAgo(date);
+          const isRead = parsedReads.has(item.id);
+
+          return {
+            id: item.id,
+            title: item.title || 'Notification',
+            message: item.message || '',
+            time: timeAgo,
+            unread: !isRead,
+            icon: 'notifications',
+            color: '#FF6B00',
+            bg: '#FFF7ED',
+            rawDate: date,
+          };
+        });
+
+        setNotifications(formatted);
+      }
+    } catch (e) {
+      console.error('Exception fetching notifications:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const formatTimeAgo = (date) => {
+    const now = new Date();
+    const diffSeconds = Math.floor((now - date) / 1000);
+    if (diffSeconds < 60) return 'Just now';
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'Yesterday';
+    return `${diffDays}d ago`;
+  };
+
+  const markAllAsRead = async () => {
+    const allIds = notifications.map((n) => n.id);
+    const newReads = new Set([...readIds, ...allIds]);
+    setReadIds(newReads);
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    await AsyncStorage.setItem('readNotificationIds', JSON.stringify(Array.from(newReads)));
+  };
+
+  const handleNotificationPress = async (item) => {
+    // Mark single as read
+    const newReads = new Set(readIds).add(item.id);
+    setReadIds(newReads);
+    setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n)));
+    await AsyncStorage.setItem('readNotificationIds', JSON.stringify(Array.from(newReads)));
+
+    Alert.alert(item.title, item.message);
   };
 
   const renderItem = ({ item }) => (
@@ -125,14 +136,6 @@ export default function NotificationsScreen({ navigation }) {
           {item.message}
         </Text>
       </View>
-
-      <TouchableOpacity 
-        style={styles.deleteBtn} 
-        onPress={() => deleteNotification(item.id)}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 
@@ -145,41 +148,41 @@ export default function NotificationsScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <TouchableOpacity onPress={markAllAsRead}>
-          <Text style={styles.markReadText}>Mark Read</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Filter Tabs */}
-      <View style={styles.tabBar}>
-        {['All', 'Orders', 'Academic'].map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabItem, activeTab === tab && styles.activeTabItem]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab}
-            </Text>
+        {notifications.length > 0 && (
+          <TouchableOpacity onPress={markAllAsRead}>
+            <Text style={styles.markReadText}>Mark Read</Text>
           </TouchableOpacity>
-        ))}
+        )}
       </View>
 
       {/* Notifications List */}
-      <FlatList
-        data={filteredNotifications}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listPadding}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={64} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>No Notifications Here</Text>
-            <Text style={styles.emptySub}>You are all caught up!</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.centerLoading}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={notifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={[styles.listPadding, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchNotifications(true)}
+              colors={[COLORS.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="notifications-off-outline" size={64} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>No notifications yet.</Text>
+              <Text style={styles.emptySub}>We'll notify you when updates arrive!</Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }
@@ -324,5 +327,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94A3B8',
     marginTop: 4,
+  },
+  centerLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

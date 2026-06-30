@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getAllSubjects, getMarketplaceServices } from '../services/supabase';
+import { getAllSubjects, getMarketplaceServices, getSkills } from '../services/supabase';
 
 const fallbackSubjects = [
   { id: 'sub-1', title: 'Physics', icon: 'aperture-outline', color: '#8B5CF6' },
@@ -29,6 +29,11 @@ const fallbackMarketplace = [
   { id: 'm-4', title: 'Engineering Graphics (EG) Sheets', price: '199', category: 'EG Sheets', badge: '📐 Neat Drawing', color: '#8B5CF6', icon: 'compass-outline', description: 'Neat A2/A3 drawing sheets drawn to perfection.' },
 ];
 
+const fallbackSkillsList = [
+  { id: 'sk-1', name: 'Data Structures & Algorithms', difficulty_level: 'intermediate', theme_color: '#8B5CF6', description: 'Placement Preparation' },
+  { id: 'sk-2', name: 'Web Development', difficulty_level: 'beginner', theme_color: '#2563EB', description: 'Frontend • Backend • MERN' },
+];
+
 export default function SearchScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
@@ -38,6 +43,7 @@ export default function SearchScreen({ navigation }) {
   ]);
   const [allSubjects, setAllSubjects] = useState([]);
   const [allMarketplace, setAllMarketplace] = useState([]);
+  const [allSkills, setAllSkills] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const popularResources = [
@@ -59,16 +65,19 @@ export default function SearchScreen({ navigation }) {
   const loadSearchData = async () => {
     try {
       setLoading(true);
-      const [subjectsData, marketData] = await Promise.all([
-        getAllSubjects(),
-        getMarketplaceServices()
+      const [subjectsData, marketData, skillsData] = await Promise.all([
+        getAllSubjects().catch(() => []),
+        getMarketplaceServices().catch(() => []),
+        getSkills().catch(() => [])
       ]);
       setAllSubjects(subjectsData && subjectsData.length > 0 ? subjectsData : fallbackSubjects);
       setAllMarketplace(marketData && marketData.length > 0 ? marketData : fallbackMarketplace);
+      setAllSkills(skillsData && skillsData.length > 0 ? skillsData : fallbackSkillsList);
     } catch (error) {
       console.log('Error loading search data:', error);
       setAllSubjects(fallbackSubjects);
       setAllMarketplace(fallbackMarketplace);
+      setAllSkills(fallbackSkillsList);
     } finally {
       setLoading(false);
     }
@@ -100,6 +109,22 @@ export default function SearchScreen({ navigation }) {
     resultType: 'Subject'
   })) : [];
 
+  const matchedSkills = query ? allSkills.filter(sk => {
+    const titleMatch = (sk.name || sk.title || '').toLowerCase().includes(query);
+    const descMatch = (sk.description || '').toLowerCase().includes(query);
+    return titleMatch || descMatch;
+  }).map(sk => ({
+    id: `skill_${sk.id}`,
+    originalItem: sk,
+    title: sk.name || sk.title,
+    type: 'Career Skill Path',
+    actionText: 'Explore Path',
+    icon: sk.icon || 'briefcase-outline',
+    themeColor: sk.theme_color || '#10B981',
+    bgColor: (sk.theme_color || '#10B981') + '20',
+    resultType: 'Skill'
+  })) : [];
+
   const matchedMarketplace = query ? allMarketplace.filter(item => {
     const titleMatch = (item.title || '').toLowerCase().includes(query);
     const catMatch = (item.category || '').toLowerCase().includes(query);
@@ -117,11 +142,13 @@ export default function SearchScreen({ navigation }) {
     resultType: 'Marketplace'
   })) : [];
 
-  const combinedResults = [...matchedSubjects, ...matchedMarketplace];
+  const combinedResults = [...matchedSubjects, ...matchedSkills, ...matchedMarketplace];
 
   const handleResultPress = (result) => {
     if (result.resultType === 'Subject') {
       navigation.navigate('SubjectDetail', { subject: result.originalItem });
+    } else if (result.resultType === 'Skill') {
+      navigation.navigate('SkillDetail', { skill: result.originalItem });
     } else if (result.resultType === 'Marketplace') {
       navigation.navigate('ServiceDetail', { service: result.originalItem });
     }

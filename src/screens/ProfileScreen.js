@@ -183,8 +183,7 @@ export default function ProfileScreen({ navigation }) {
         {/* My Resources */}
         <SectionGroup title="MY RESOURCES & ORDERS">
           <MenuRow label="My Orders" icon="cart" iconColor="#8B5CF6" onPress={() => navigation.navigate('MyOrders')} />
-          <MenuRow label="Saved Notes & PYQs" icon="bookmark" iconColor="#EC4899" onPress={() => navigation.navigate('Subjects')} />
-          <MenuRow label="Recent Downloads" icon="download" iconColor="#3B82F6" onPress={() => navigation.navigate('Subjects')} isLast />
+          <MenuRow label="Saved Notes & PYQs" icon="bookmark" iconColor="#EC4899" onPress={() => navigation.navigate('SavedResources')} isLast />
         </SectionGroup>
 
         {/* Community & Support */}

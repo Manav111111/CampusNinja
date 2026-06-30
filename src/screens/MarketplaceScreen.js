@@ -9,12 +9,13 @@ import {
   Image,
   ActivityIndicator,
   FlatList,
-  Linking
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { getMarketplaceServices, getBanners } from '../services/supabase';
+import { useCart } from '../context/CartContext';
 
 const { width } = Dimensions.get('window');
 
@@ -23,53 +24,22 @@ const filterChips = [
   { id: 'assignments', label: 'Assignments' },
   { id: 'projects', label: 'Projects' },
   { id: 'lab-manuals', label: 'Lab Manuals' },
+  { id: 'drafting-kits', label: 'Drafting Kits' },
   { id: 'eg-sheets', label: 'EG Sheets' },
-  { id: 'development', label: 'Development' },
-];
-
-const features = [
-  {
-    id: 'f1',
-    title: 'Fast Delivery',
-    subtitle: 'On-time delivery\nguaranteed.',
-    icon: 'flash',
-    iconColor: '#3B82F6',
-    bgColor: '#DBEAFE',
-  },
-  {
-    id: 'f2',
-    title: 'Student Friendly\nPricing',
-    subtitle: 'Affordable prices\nfor every student.',
-    icon: 'pricetag',
-    iconColor: '#10B981',
-    bgColor: '#D1FAE5',
-  },
-  {
-    id: 'f3',
-    title: 'Verified\nResources',
-    subtitle: 'High quality &\nverified content.',
-    icon: 'checkmark-circle',
-    iconColor: '#F97316',
-    bgColor: '#FFEDD5',
-  },
-  {
-    id: 'f4',
-    title: 'WhatsApp\nSupport',
-    subtitle: '24x7 support\nfor all students.',
-    icon: 'logo-whatsapp',
-    iconColor: '#8B5CF6',
-    bgColor: '#F3E8FF',
-  },
+  { id: 'notes', label: 'Notes' },
+  { id: 'calculators', label: 'Calculators' },
 ];
 
 export default function MarketplaceScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const { addToCart, getTotalItems } = useCart();
   
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [services, setServices] = useState([]);
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState({});
 
   useEffect(() => {
     if (isFocused) {
@@ -81,8 +51,8 @@ export default function MarketplaceScreen({ navigation }) {
     try {
       setLoading(true);
       const [servicesData, bannersData] = await Promise.all([
-        getMarketplaceServices(),
-        getBanners('marketplace')
+        getMarketplaceServices().catch(() => []),
+        getBanners('marketplace').catch(() => [])
       ]);
       setServices(servicesData || []);
       setBanners(bannersData || []);
@@ -93,38 +63,53 @@ export default function MarketplaceScreen({ navigation }) {
     }
   };
 
+  const toggleFavorite = (id) => {
+    setFavorites(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleAddToCart = (item) => {
+    addToCart(item, 1);
+    Alert.alert('Added to Cart 🛒', `${item.title || item.name} has been added to your cart.`);
+  };
+
   const filteredServices = selectedFilter === 'all' 
     ? services 
-    : services.filter(s => s.category?.toLowerCase() === selectedFilter.replace('-', ' '));
+    : services.filter(s => {
+        const cat = (s.category || '').toLowerCase();
+        const target = selectedFilter.replace('-', ' ');
+        return cat.includes(target) || target.includes(cat);
+      });
 
-  const handleBannerPress = (url) => {
-    if (url) {
-      Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
-    }
-  };
+  const cartItemCount = getTotalItems();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Marketplace</Text>
-          <Text style={styles.headerSubtitle}>Academic Resources & Services</Text>
+          <Text style={styles.headerTitle}>Campus Store</Text>
+          <Text style={styles.headerSubtitle}>Student Essentials & Academic Support</Text>
         </View>
+        
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Search')}>
-            <Ionicons name="search-outline" size={24} color="#111827" />
+            <Ionicons name="search-outline" size={22} color="#111827" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="funnel-outline" size={24} color="#111827" />
+
+          <TouchableOpacity style={styles.cartButton} onPress={() => navigation.navigate('Cart')}>
+            <Ionicons name="cart" size={22} color="#111827" />
+            {cartItemCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cartItemCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 80, 110) }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 90, 120) }]}>
         
-        {/* Dynamic Banners */}
+        {/* Banner Section */}
         {banners.length > 0 ? (
           <FlatList
             data={banners}
@@ -135,8 +120,8 @@ export default function MarketplaceScreen({ navigation }) {
             renderItem={({ item }) => (
               <TouchableOpacity 
                 style={[styles.bannerContainer, { width: width - 32 }]}
-                activeOpacity={0.9}
-                onPress={() => handleBannerPress(item.button_url)}
+                activeOpacity={0.95}
+                onPress={() => item.button_url && navigation.navigate('ServiceDetail', { service: item })}
               >
                 {item.image_url ? (
                   <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} />
@@ -144,57 +129,40 @@ export default function MarketplaceScreen({ navigation }) {
                   <View style={styles.bannerContent}>
                     <Text style={styles.bannerTitle}>{item.title}</Text>
                     <Text style={styles.bannerSubtitle}>{item.subtitle}</Text>
-                    {item.button_text ? (
-                      <View style={styles.bannerButton}>
-                        <Text style={styles.bannerButtonText}>{item.button_text}</Text>
-                        <Ionicons name="arrow-forward" size={14} color="#111827" />
-                      </View>
-                    ) : null}
+                    <View style={styles.bannerButton}>
+                      <Text style={styles.bannerButtonText}>{item.button_text || 'Explore Now'}</Text>
+                      <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                    </View>
                   </View>
                 )}
               </TouchableOpacity>
             )}
           />
         ) : (
-          <View style={[styles.bannerContainer, { width: width - 32, backgroundColor: '#F3F4F6' }]}>
-            <View style={styles.bannerContent}>
-              <Text style={styles.bannerTitle}>Need help with assignments, projects or lab manuals?</Text>
-              <Text style={styles.bannerSubtitle}>Get them delivered quickly.</Text>
-              
-              <View style={styles.badgesContainer}>
-                <View style={styles.badge}>
-                  <Ionicons name="shield-checkmark-outline" size={12} color="#1E40AF" style={styles.badgeIcon} />
-                  <Text style={styles.badgeText}>Trusted by Thousands</Text>
-                </View>
-                <View style={styles.badge}>
-                  <Ionicons name="flash-outline" size={12} color="#1E40AF" style={styles.badgeIcon} />
-                  <Text style={styles.badgeText}>On-time Delivery</Text>
-                </View>
+          <View style={[styles.heroBanner, { width: width - 32 }]}>
+            <View style={styles.heroTextContent}>
+              <View style={styles.heroTag}>
+                <Text style={styles.heroTagText}>⚡ INSTANT STUDENT SUPPORT</Text>
               </View>
+              <Text style={styles.heroTitle}>All Academic Essentials Delivered</Text>
+              <Text style={styles.heroSubtitle}>Lab Manuals, Projects, EG Sheets & High Quality Notes</Text>
             </View>
-            <View style={styles.abstractShape1} />
-            <View style={styles.abstractShape2} />
+            <Ionicons name="cube" size={80} color="#FFF7ED" style={styles.heroIcon} />
           </View>
         )}
 
-        {/* Filter Chips */}
-        <View style={styles.filterContainer}>
+        {/* Categories Chips */}
+        <View style={styles.filterSection}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
             {filterChips.map((chip) => {
               const isActive = selectedFilter === chip.id;
               return (
                 <TouchableOpacity
                   key={chip.id}
-                  style={[
-                    styles.chip,
-                    isActive ? styles.chipActive : styles.chipInactive
-                  ]}
+                  style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
                   onPress={() => setSelectedFilter(chip.id)}
                 >
-                  <Text style={[
-                    styles.chipText,
-                    isActive ? styles.chipTextActive : styles.chipTextInactive
-                  ]}>
+                  <Text style={[styles.chipText, isActive ? styles.chipTextActive : styles.chipTextInactive]}>
                     {chip.label}
                   </Text>
                 </TouchableOpacity>
@@ -203,67 +171,82 @@ export default function MarketplaceScreen({ navigation }) {
           </ScrollView>
         </View>
 
-        {/* Services Grid */}
+        {/* Product Grid */}
         {loading ? (
-          <ActivityIndicator size="large" color="#2563EB" style={{ marginVertical: 40 }} />
+          <ActivityIndicator size="large" color="#FF6B00" style={{ marginVertical: 60 }} />
         ) : (
-          <View style={styles.servicesGrid}>
+          <View style={styles.productsGrid}>
             {filteredServices.length === 0 ? (
-              <Text style={{ textAlign: 'center', width: '100%', color: '#6B7280', marginVertical: 20 }}>No services found for this category.</Text>
+              <View style={styles.emptyGrid}>
+                <Ionicons name="bag-handle-outline" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyGridTitle}>No items found</Text>
+                <Text style={styles.emptyGridSubtitle}>Check back soon for new additions in this category.</Text>
+              </View>
             ) : (
-              filteredServices.map((item) => (
-                <TouchableOpacity 
-                  key={item.id} 
-                  style={styles.serviceCard} 
-                  activeOpacity={0.8}
-                  onPress={() => navigation.navigate('ServiceDetail', { service: item })}
-                >
-                  {item.thumbnail_url ? (
-                    <Image source={{ uri: item.thumbnail_url }} style={styles.cardImage} />
-                  ) : (
-                    <View style={[styles.cardIconContainer, { backgroundColor: '#F3E8FF' }]}>
-                      <Ionicons name="cart-outline" size={28} color="#8B5CF6" />
+              filteredServices.map((item) => {
+                const isFav = favorites[item.id];
+                const price = item.price || item.original_price || 99;
+                return (
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={styles.productCard} 
+                    activeOpacity={0.9}
+                    onPress={() => navigation.navigate('ServiceDetail', { service: item })}
+                  >
+                    {/* Thumbnail box */}
+                    <View style={styles.imageBox}>
+                      {item.thumbnail_url || item.image ? (
+                        <Image source={{ uri: item.thumbnail_url || item.image }} style={styles.productImage} />
+                      ) : (
+                        <View style={styles.placeholderImage}>
+                          <Ionicons name="cube-outline" size={40} color="#FF6B00" />
+                        </View>
+                      )}
+                      
+                      {/* Heart Button */}
+                      <TouchableOpacity 
+                        style={styles.heartButton} 
+                        onPress={() => toggleFavorite(item.id)}
+                      >
+                        <Ionicons 
+                          name={isFav ? "heart" : "heart-outline"} 
+                          size={18} 
+                          color={isFav ? "#EF4444" : "#6B7280"} 
+                        />
+                      </TouchableOpacity>
+
+                      {/* Stock Badge */}
+                      <View style={styles.stockBadge}>
+                        <Text style={styles.stockText}>IN STOCK</Text>
+                      </View>
                     </View>
-                  )}
-                  
-                  <Text style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit>{item.title}</Text>
-                  
-                  <View style={styles.priceContainer}>
-                    <Text style={styles.cardPrice}>₹{item.price}</Text>
-                  </View>
-                  
-                  <Text style={styles.cardSubtitleText} numberOfLines={2}>{item.description || 'Professional academic service.'}</Text>
-  
-                  <View style={{ flex: 1 }} />
-  
-                  <TouchableOpacity style={styles.viewDetailsButton} onPress={() => navigation.navigate('ServiceDetail', { service: item })}>
-                    <Text style={styles.viewDetailsText}>Buy Now</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#FFFFFF" />
+
+                    {/* Content */}
+                    <View style={styles.cardContent}>
+                      <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryBadgeText}>{item.category || 'Essential'}</Text>
+                      </View>
+
+                      <Text style={styles.productName} numberOfLines={2}>{item.title || item.name}</Text>
+
+                      <View style={styles.priceRow}>
+                        <Text style={styles.productPrice}>₹{price}</Text>
+                        
+                        <TouchableOpacity 
+                          style={styles.addCartBtn}
+                          onPress={() => handleAddToCart(item)}
+                        >
+                          <Ionicons name="add" size={18} color="#FFFFFF" />
+                          <Text style={styles.addCartText}>ADD</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </TouchableOpacity>
-                </TouchableOpacity>
-              ))
+                );
+              })
             )}
           </View>
         )}
-
-        {/* Why Choose Campus Ninja? */}
-        <Text style={styles.sectionTitle}>Why Choose Campus Ninja?</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={styles.featuresScroll}
-        >
-          {features.map((feature) => (
-            <View key={feature.id} style={styles.featureCard}>
-              <View style={[styles.featureIconContainer, { backgroundColor: feature.bgColor }]}>
-                <Ionicons name={feature.icon} size={28} color={feature.iconColor} />
-              </View>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
-              <Text style={styles.featureSubtitle}>{feature.subtitle}</Text>
-            </View>
-          ))}
-        </ScrollView>
-
       </ScrollView>
     </View>
   );
@@ -272,150 +255,176 @@ export default function MarketplaceScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F9FAFB',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   headerTitleContainer: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#111827',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
   },
   headerIcons: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   iconButton: {
-    padding: 6,
-    marginLeft: 8,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    marginRight: 10,
+  },
+  cartButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#FF6B00',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   bannerContainer: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    backgroundColor: '#1E3A8A',
-    padding: 24,
-    position: 'relative',
+    height: 150,
+    borderRadius: 20,
     overflow: 'hidden',
-    height: 180,
-  },
-  abstractShape1: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#E0E7FF',
-    top: -50,
-    right: -80,
-    zIndex: 0,
-  },
-  abstractShape2: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#E0E7FF',
-    bottom: -30,
-    right: 40,
-    zIndex: 0,
+    backgroundColor: '#111827',
+    marginBottom: 20,
   },
   bannerContent: {
-    position: 'relative',
-    zIndex: 1,
-    maxWidth: '85%',
-    flex: 1,
+    padding: 20,
     justifyContent: 'center',
+    flex: 1,
   },
   bannerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-    lineHeight: 28,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 6,
   },
   bannerSubtitle: {
     fontSize: 13,
-    color: '#4B5563',
-    marginTop: 8,
+    color: '#D1D5DB',
+    marginBottom: 14,
   },
   bannerButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    backgroundColor: '#FF6B00',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   bannerButtonText: {
-    color: '#111827',
-    fontWeight: '600',
+    color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '700',
     marginRight: 4,
   },
-  badgesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 16,
-  },
-  badge: {
+  heroBanner: {
+    height: 150,
+    borderRadius: 20,
+    backgroundColor: '#FF6B00',
+    padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#DBEAFE',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginRight: 8,
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  heroTextContent: {
+    flex: 1,
+    zIndex: 2,
+  },
+  heroTag: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     marginBottom: 8,
   },
-  badgeIcon: {
-    marginRight: 4,
+  heroTagText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#1E40AF',
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
-  filterContainer: {
-    marginTop: 20,
-    marginBottom: 16,
+  heroSubtitle: {
+    fontSize: 12,
+    color: '#FFF7ED',
+  },
+  heroIcon: {
+    position: 'absolute',
+    right: -10,
+    bottom: -15,
+    opacity: 0.25,
+  },
+  filterSection: {
+    marginBottom: 18,
   },
   filterScroll: {
-    paddingHorizontal: 16,
+    paddingRight: 16,
   },
   chip: {
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginRight: 8,
-    borderWidth: 1,
   },
   chipActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: '#111827',
   },
   chipInactive: {
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   chipText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   chipTextActive: {
     color: '#FFFFFF',
@@ -423,123 +432,136 @@ const styles = StyleSheet.create({
   chipTextInactive: {
     color: '#4B5563',
   },
-  servicesGrid: {
+  productsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
   },
-  serviceCard: {
-    width: (width - 48) / 2,
+  productCard: {
+    width: (width - 44) / 2,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 18,
+    marginBottom: 14,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#F3F4F6',
-    alignItems: 'center',
   },
-  cardIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+  imageBox: {
+    width: '100%',
+    height: 130,
+    backgroundColor: '#F9FAFB',
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
+  },
+  heartButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
-  cardImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    marginBottom: 12,
+  stockBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(17, 24, 39, 0.85)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111827',
-    textAlign: 'center',
+  stockText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  cardContent: {
+    padding: 12,
+  },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
     marginBottom: 6,
   },
-  priceContainer: {
+  categoryBadgeText: {
+    color: '#FF6B00',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 10,
+    height: 38,
+  },
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'space-between',
   },
-  pricePrefix: {
+  productPrice: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  addCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF6B00',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addCartText: {
+    color: '#FFFFFF',
     fontSize: 12,
-    color: '#2563EB',
-    fontWeight: '600',
+    fontWeight: '800',
+    marginLeft: 2,
   },
-  cardPrice: {
+  emptyGrid: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+  },
+  emptyGridTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2563EB',
+    fontWeight: '700',
+    color: '#374151',
+    marginTop: 12,
   },
-  cardSubtitleText: {
-    fontSize: 11,
+  emptyGridSubtitle: {
+    fontSize: 13,
     color: '#6B7280',
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 16,
-    minHeight: 28,
-  },
-  viewDetailsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#2563EB',
-  },
-  viewDetailsText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginRight: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginLeft: 16,
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  featuresScroll: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
-  featureCard: {
-    width: 140,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  featureIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  featureTitle: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#111827',
-    textAlign: 'center',
-    marginBottom: 6,
-    minHeight: 34,
-  },
-  featureSubtitle: {
-    fontSize: 11,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 16,
   },
 });

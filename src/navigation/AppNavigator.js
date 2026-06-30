@@ -14,6 +14,9 @@ import ServiceDetailScreen from '../screens/ServiceDetailScreen';
 import OrderRequestScreen from '../screens/OrderRequestScreen';
 import MyOrdersScreen from '../screens/MyOrdersScreen';
 import SupportScreen from '../screens/SupportScreen';
+import SavedResourcesScreen from '../screens/SavedResourcesScreen';
+import SkillDetailScreen from '../screens/SkillDetailScreen';
+import CartScreen from '../screens/CartScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -37,10 +40,13 @@ export default function AppNavigator() {
       {/* Other Stack Screens */}
       <Stack.Screen name="Search" component={SearchScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="SubjectDetail" component={SubjectDetailScreen} />
+      <Stack.Screen name="SkillDetail" component={SkillDetailScreen} />
       <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
       <Stack.Screen name="OrderRequest" component={OrderRequestScreen} />
       <Stack.Screen name="MyOrders" component={MyOrdersScreen} />
+      <Stack.Screen name="SavedResources" component={SavedResourcesScreen} />
       <Stack.Screen name="Support" component={SupportScreen} />
     </Stack.Navigator>
   );

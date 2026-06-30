@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -7,130 +7,197 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  Linking
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../constants/colors';
+import { useCart } from '../context/CartContext';
+import { getMarketplaceServices, getDeliverySettings } from '../services/supabase';
 
 const { width } = Dimensions.get('window');
 
 export default function ServiceDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { service } = route.params;
+  const { addToCart, getTotalItems } = useCart();
+
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [deliveryInfo, setDeliveryInfo] = useState({ deliveryFee: 49, freeDeliveryThreshold: 499 });
+
+  useEffect(() => {
+    loadSupplementaryData();
+  }, [service]);
+
+  const loadSupplementaryData = async () => {
+    try {
+      const [allServices, settings] = await Promise.all([
+        getMarketplaceServices().catch(() => []),
+        getDeliverySettings().catch(() => ({ deliveryFee: 49, freeDeliveryThreshold: 499 }))
+      ]);
+      setDeliveryInfo(settings);
+      
+      // Filter related by same category or exclude current
+      const related = (allServices || []).filter(item => item.id !== service.id).slice(0, 4);
+      setRelatedProducts(related);
+    } catch (e) {
+      console.log('Error loading details supplementary data:', e);
+    }
+  };
+
+  const handleAddToCart = () => {
+    addToCart(service, 1);
+    Alert.alert('Added to Cart 🛒', `${service.title || service.name} has been added to your shopping cart.`);
+  };
+
+  const handleBuyNow = () => {
+    navigation.navigate('OrderRequest', { service });
+  };
+
+  const price = service.price || service.original_price || 99;
+  const cartItemCount = getTotalItems();
+
+  // Parse what's included or default
+  const whatsIncluded = service.whats_included || [
+    'Complete verified solution / item',
+    'Proper formatting & student guidelines followed',
+    'Instant WhatsApp assistance & order support',
+    'Quality review prior to delivery'
+  ];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       
-      {/* Header */}
+      {/* Top Header Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{service.title}</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Thumbnail / Hero Image */}
-        {service.thumbnail_url ? (
-          <Image source={{ uri: service.thumbnail_url }} style={styles.heroImage} />
-        ) : (
-          <View style={styles.heroPlaceholder}>
-            <Ionicons name="cart-outline" size={64} color="#8B5CF6" />
-          </View>
-        )}
+        <Text style={styles.headerTitle} numberOfLines={1}>Product Details</Text>
 
-        <View style={styles.contentPadding}>
-          {/* Title & Price */}
-          <View style={styles.titleRow}>
-            <Text style={styles.serviceTitle}>{service.title}</Text>
-            <Text style={styles.servicePrice}>₹{service.price}</Text>
-          </View>
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{service.category || 'Service'}</Text>
-          </View>
-
-          {/* Description */}
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.descriptionText}>
-            {service.description || "Get premium academic assistance for your college requirements. We offer high quality, verified solutions."}
-          </Text>
-
-          {/* Demo Assignment Preview */}
-          {service.drive_link ? (
-            <TouchableOpacity 
-              style={styles.demoCard}
-              onPress={() => Linking.openURL(service.drive_link).catch(() => {})}
-            >
-              <View style={styles.demoIconContainer}>
-                <Ionicons name="document-text" size={24} color="#EA580C" />
-              </View>
-              <View style={styles.demoTextContainer}>
-                <Text style={styles.demoTitle}>Demo Preview</Text>
-                <Text style={styles.demoSubtitle}>Tap to view a sample of our work</Text>
-              </View>
-              <Ionicons name="open-outline" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
-          ) : null}
-
-          {/* How It Works */}
-          <Text style={styles.sectionTitle}>How It Works</Text>
-          <View style={styles.stepsContainer}>
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberContainer}>
-                <Text style={styles.stepNumber}>1</Text>
-              </View>
-              <View style={styles.stepTextContainer}>
-                <Text style={styles.stepTitle}>Submit Your Requirement</Text>
-                <Text style={styles.stepDescription}>Fill out the order form with your exact needs.</Text>
-              </View>
+        <TouchableOpacity style={styles.cartButton} onPress={() => navigation.navigate('Cart')}>
+          <Ionicons name="cart" size={22} color="#111827" />
+          {cartItemCount > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cartItemCount}</Text>
             </View>
-            
-            <View style={styles.stepConnector} />
-            
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberContainer}>
-                <Text style={styles.stepNumber}>2</Text>
-              </View>
-              <View style={styles.stepTextContainer}>
-                <Text style={styles.stepTitle}>We Contact You</Text>
-                <Text style={styles.stepDescription}>Our team will review your order and reach out.</Text>
-              </View>
-            </View>
-            
-            <View style={styles.stepConnector} />
-            
-            <View style={styles.stepRow}>
-              <View style={styles.stepNumberContainer}>
-                <Text style={styles.stepNumber}>3</Text>
-              </View>
-              <View style={styles.stepTextContainer}>
-                <Text style={styles.stepTitle}>Get It Delivered</Text>
-                <Text style={styles.stepDescription}>Receive high-quality work within the deadline.</Text>
-              </View>
-            </View>
-          </View>
-          
-        </View>
-      </ScrollView>
-
-      {/* Floating Buy Now Button */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <View style={styles.priceContainer}>
-          <Text style={styles.totalLabel}>Total Price</Text>
-          <Text style={styles.totalPrice}>₹{service.price}</Text>
-        </View>
-        <TouchableOpacity 
-          style={styles.buyButton}
-          onPress={() => navigation.navigate('OrderRequest', { service })}
-        >
-          <Text style={styles.buyButtonText}>Buy Now</Text>
-          <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          )}
         </TouchableOpacity>
       </View>
 
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 90, 120) }]}>
+        
+        {/* Large Product Hero Image */}
+        <View style={styles.heroImageContainer}>
+          {service.thumbnail_url || service.image ? (
+            <Image source={{ uri: service.thumbnail_url || service.image }} style={styles.heroImage} />
+          ) : (
+            <View style={styles.heroPlaceholder}>
+              <Ionicons name="cube-outline" size={80} color="#FF6B00" />
+            </View>
+          )}
+          <View style={styles.inStockBadge}>
+            <Text style={styles.inStockText}>✓ IN STOCK</Text>
+          </View>
+        </View>
+
+        {/* Basic Details Box */}
+        <View style={styles.detailsBox}>
+          <View style={styles.categoryBadge}>
+            <Text style={styles.categoryBadgeText}>{service.category || 'Essential'}</Text>
+          </View>
+
+          <Text style={styles.productTitle}>{service.title || service.name}</Text>
+
+          <View style={styles.priceRow}>
+            <Text style={styles.priceText}>₹{price}</Text>
+            <Text style={styles.priceSubtext}>inclusive of all taxes</Text>
+          </View>
+        </View>
+
+        {/* Delivery Information Banner */}
+        <View style={styles.deliveryBanner}>
+          <View style={styles.deliveryIconBox}>
+            <Ionicons name="bicycle" size={24} color="#FF6B00" />
+          </View>
+          <View style={styles.deliveryTextContainer}>
+            <Text style={styles.deliveryBannerTitle}>Quick Delivery Available</Text>
+            <Text style={styles.deliveryBannerSubtitle}>
+              Standard Delivery Fee: ₹{deliveryInfo.deliveryFee}. {'\n'}
+              {deliveryInfo.freeDeliveryThreshold > 0 ? `FREE Delivery on orders above ₹${deliveryInfo.freeDeliveryThreshold}!` : ''}
+            </Text>
+          </View>
+        </View>
+
+        {/* Description */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeading}>Description</Text>
+          <Text style={styles.descriptionText}>
+            {service.description || "High quality academic resource meticulously curated for campus students. Perfectly adheres to university standards and ensures top academic results."}
+          </Text>
+        </View>
+
+        {/* What's Included */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeading}>What's Included</Text>
+          {Array.isArray(whatsIncluded) ? whatsIncluded.map((point, index) => (
+            <View key={index} style={styles.includedRow}>
+              <Ionicons name="checkmark-circle" size={18} color="#10B981" style={styles.includedIcon} />
+              <Text style={styles.includedText}>{point}</Text>
+            </View>
+          )) : (
+            <Text style={styles.includedText}>{whatsIncluded}</Text>
+          )}
+        </View>
+
+        {/* Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <View style={styles.relatedSection}>
+            <Text style={styles.sectionHeading}>Related Student Essentials</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.relatedScroll}>
+              {relatedProducts.map(rel => (
+                <TouchableOpacity 
+                  key={rel.id} 
+                  style={styles.relatedCard}
+                  activeOpacity={0.9}
+                  onPress={() => navigation.push('ServiceDetail', { service: rel })}
+                >
+                  <View style={styles.relatedImageBox}>
+                    {rel.thumbnail_url || rel.image ? (
+                      <Image source={{ uri: rel.thumbnail_url || rel.image }} style={styles.relatedImage} />
+                    ) : (
+                      <Ionicons name="cube-outline" size={28} color="#FF6B00" />
+                    )}
+                  </View>
+                  <Text style={styles.relatedTitle} numberOfLines={2}>{rel.title || rel.name}</Text>
+                  <Text style={styles.relatedPrice}>₹{rel.price || rel.original_price || 99}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Sticky Dual Action Bar */}
+      <View style={[styles.stickyBottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <TouchableOpacity 
+          style={styles.addToCartButton} 
+          activeOpacity={0.85}
+          onPress={handleAddToCart}
+        >
+          <Ionicons name="cart-outline" size={20} color="#111827" />
+          <Text style={styles.addToCartText}>Add to Cart</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.buyNowButton} 
+          activeOpacity={0.85}
+          onPress={handleBuyNow}
+        >
+          <Text style={styles.buyNowText}>Buy Now</Text>
+          <Ionicons name="flash" size={18} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -138,166 +205,257 @@ export default function ServiceDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F9FAFB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  backButton: {
+  iconButton: {
     padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#111827',
-    textAlign: 'center',
+  },
+  cartButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#FF6B00',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   scrollContent: {
-    paddingBottom: 100, // Space for floating button
+    padding: 16,
+  },
+  heroImageContainer: {
+    width: '100%',
+    height: width * 0.75,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 16,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   heroImage: {
-    width: width,
-    height: 220,
+    width: '100%',
+    height: '100%',
     resizeMode: 'cover',
   },
   heroPlaceholder: {
-    width: width,
-    height: 220,
-    backgroundColor: '#F3E8FF',
-    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF7ED',
   },
-  contentPadding: {
-    padding: 20,
+  inStockBadge: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    backgroundColor: '#111827',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+  inStockText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
-  serviceTitle: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginRight: 16,
-  },
-  servicePrice: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#2563EB',
+  detailsBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   categoryBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#DBEAFE',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 24,
+    backgroundColor: '#FFF7ED',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 8,
   },
-  categoryText: {
-    color: '#1E40AF',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
+  categoryBadgeText: {
+    color: '#FF6B00',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  productTitle: {
+    fontSize: 22,
+    fontWeight: '800',
     color: '#111827',
     marginBottom: 12,
+    lineHeight: 28,
   },
-  descriptionText: {
-    fontSize: 15,
-    color: '#4B5563',
-    lineHeight: 24,
-    marginBottom: 24,
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
-  demoCard: {
+  priceText: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FF6B00',
+  },
+  priceSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginLeft: 8,
+  },
+  deliveryBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF7ED',
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  demoIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFEDD5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  demoTextContainer: {
-    flex: 1,
-  },
-  demoTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#9A3412',
-    marginBottom: 4,
-  },
-  demoSubtitle: {
-    fontSize: 13,
-    color: '#C2410C',
-  },
-  stepsContainer: {
-    marginTop: 8,
-  },
-  stepRow: {
-    flexDirection: 'row',
-  },
-  stepNumberContainer: {
-    width: 32,
-    height: 32,
+    borderColor: '#FFEDD5',
     borderRadius: 16,
-    backgroundColor: '#2563EB',
-    justifyContent: 'center',
+    padding: 14,
+    marginBottom: 16,
+  },
+  deliveryIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    marginRight: 16,
-    zIndex: 2,
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  stepNumber: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  stepTextContainer: {
+  deliveryTextContainer: {
     flex: 1,
-    paddingBottom: 24,
   },
-  stepTitle: {
+  deliveryBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#9A3412',
+    marginBottom: 2,
+  },
+  deliveryBannerSubtitle: {
+    fontSize: 12,
+    color: '#C2410C',
+    lineHeight: 16,
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sectionHeading: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 10,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 22,
+  },
+  includedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  includedIcon: {
+    marginRight: 10,
+  },
+  includedText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  relatedSection: {
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  relatedScroll: {
+    paddingTop: 4,
+  },
+  relatedCard: {
+    width: 140,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 10,
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  relatedImageBox: {
+    width: 120,
+    height: 90,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  relatedImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  relatedTitle: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#111827',
     marginBottom: 4,
+    height: 34,
   },
-  stepDescription: {
+  relatedPrice: {
     fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
+    fontWeight: '800',
+    color: '#FF6B00',
   },
-  stepConnector: {
-    position: 'absolute',
-    top: 32,
-    left: 15,
-    width: 2,
-    height: '100%',
-    backgroundColor: '#E5E7EB',
-    zIndex: 1,
-  },
-  bottomBar: {
+  stickyBottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -306,43 +464,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    // shadow
+    borderTopColor: '#F3F4F6',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 10,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 12,
   },
-  priceContainer: {
-    justifyContent: 'center',
-  },
-  totalLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  totalPrice: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  buyButton: {
+  addToCartButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#F3F4F6',
     paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    borderRadius: 14,
+    marginRight: 10,
   },
-  buyButtonText: {
+  addToCartText: {
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  buyNowButton: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF6B00',
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  buyNowText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 8,
+    fontSize: 15,
+    fontWeight: '800',
+    marginRight: 6,
   },
 });

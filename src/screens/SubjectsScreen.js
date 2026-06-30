@@ -47,7 +47,7 @@ const isValidUUID = (uuid) => {
   return typeof uuid === 'string' && regex.test(uuid);
 };
 
-export default function SubjectsScreen({ navigation }) {
+export default function SubjectsScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   
@@ -220,7 +220,7 @@ export default function SubjectsScreen({ navigation }) {
             <TouchableOpacity 
               style={[styles.subjectCard, { backgroundColor: item.bgColor || '#F8FAFC' }]}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate('SubjectDetail', { subject: item })}
+              onPress={() => navigation.navigate('SubjectDetail', { subject: item, initialTab: route?.params?.initialTab })}
             >
               <FolderIcon 
                 iconName={item.icon || 'book-outline'} 

@@ -15,7 +15,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getBranches, getSemesters } from '../services/supabase';
+import { getBranches, getSemesters, supabase } from '../services/supabase';
+import { registerForPushNotifications, saveDeviceToken } from '../services/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -103,8 +104,15 @@ export default function AcademicSetupScreen({ navigation }) {
         await AsyncStorage.setItem('userBranchName', selectedBranch.name);
         await AsyncStorage.setItem('userSemesterId', selectedSemester.id);
         await AsyncStorage.setItem('userSemesterNumber', selectedSemester.number.toString());
+
+        // Update token in backend with branch & semester info
+        const pushRes = await registerForPushNotifications();
+        if (pushRes?.fcmToken) {
+          const { data: { session } } = await supabase.auth.getSession();
+          await saveDeviceToken(session?.user?.id || null, pushRes.fcmToken, pushRes.platform);
+        }
       } catch (e) {
-        console.log('Error saving data', e);
+        console.log('Error saving data or token', e);
       }
     }
     navigation.replace('MainApp');

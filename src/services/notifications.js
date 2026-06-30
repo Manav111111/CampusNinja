@@ -8,6 +8,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
 // ────────────────────────────────────────────────────────────────
@@ -106,32 +107,45 @@ export const registerForPushNotifications = async () => {
 // simply updates the timestamp and user_id.
 // ────────────────────────────────────────────────────────────────
 export const saveDeviceToken = async (userId, fcmToken, platform = 'android') => {
-  if (!userId || !fcmToken) {
-    console.warn('⚠️ [Notifications] Cannot save token: missing userId or fcmToken');
+  if (!fcmToken) {
+    console.warn('⚠️ [Notifications] Cannot save token: missing fcmToken');
     return false;
   }
 
   try {
+    const branchId = await AsyncStorage.getItem('userBranchId');
+    const semesterId = await AsyncStorage.getItem('userSemesterId');
+
+    console.log('📋 [TEMP LOG] Saving FCM Token to backend:', {
+      token: fcmToken.substring(0, 20) + '...',
+      userId: userId || null,
+      platform,
+      branch_id: branchId || null,
+      semester_id: semesterId || null,
+    });
+
+    const payload = {
+      token: fcmToken,
+      platform,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (userId) payload.user_id = userId;
+    if (branchId) payload.branch_id = branchId;
+    if (semesterId) payload.semester_id = semesterId;
+
     const { error } = await supabase
       .from('device_tokens')
-      .upsert(
-        {
-          user_id: userId,
-          token: fcmToken,
-          platform,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'token', // If this device already registered, update it
-        }
-      );
+      .upsert(payload, {
+        onConflict: 'token',
+      });
 
     if (error) {
-      console.error('❌ [Notifications] Failed to save token to Supabase:', error.message);
+      console.error('❌ [TEMP LOG] Failed to save token to Supabase:', error.message);
       return false;
     }
 
-    console.log('💾 [Notifications] Device token saved to Supabase for user:', userId);
+    console.log('✅ [TEMP LOG] Device token saved successfully to Supabase');
     return true;
   } catch (error) {
     console.error('❌ [Notifications] saveDeviceToken exception:', error);
@@ -166,18 +180,18 @@ export const removeDeviceToken = async (fcmToken) => {
 // ────────────────────────────────────────────────────────────────
 // 5. HANDLE NOTIFICATION TAP (RESPONSE)
 // When a user taps a notification, parse the payload data
-// and navigate to the appropriate screen.
+// and navigate to the appropriate screen ONLY if explicitly specified.
 //
 // Expected payload data format from admin panel:
 // {
-//   screen: "SubjectDetail" | "ServiceDetail" | "MyOrders" | "Notifications" | etc.,
+//   screen: "SubjectDetail" | "ServiceDetail" | "MyOrders" | etc.,
 //   params: { subject: {...}, service: {...}, orderId: "..." }
 // }
 // ────────────────────────────────────────────────────────────────
 export const handleNotificationResponse = (response, navigationRef) => {
   try {
-    const data = response.notification.request.content.data;
-    console.log('👆 [Notifications] User tapped notification. Payload:', JSON.stringify(data));
+    const data = response?.notification?.request?.content?.data || {};
+    console.log('👆 [Notifications] Notification tapped. Payload:', JSON.stringify(data));
 
     if (!navigationRef?.current) {
       console.warn('⚠️ [Notifications] Navigation ref not ready yet');
@@ -190,14 +204,16 @@ export const handleNotificationResponse = (response, navigationRef) => {
     const screen = data?.screen;
     const params = data?.params ? (typeof data.params === 'string' ? JSON.parse(data.params) : data.params) : {};
 
-    if (screen) {
-      console.log(`🧭 [Notifications] Navigating to: ${screen}`, params);
-      // Use navigate (not replace) so the user can go back
+    // Only navigate if a specific target screen was requested in the notification payload.
+    // Do NOT automatically open the Notifications screen when a general notification is received or tapped.
+    if (screen && typeof screen === 'string' && screen !== 'Notifications') {
+      console.log(`🧭 [Notifications] Navigating to specified screen: ${screen}`, params);
       nav.navigate(screen, params);
-    } else {
-      // Default: open the Notifications screen
-      console.log('🧭 [Notifications] No screen specified, opening Notifications');
+    } else if (screen === 'Notifications') {
+      console.log('🧭 [Notifications] Navigating to Notifications screen explicitly requested by payload.');
       nav.navigate('Notifications');
+    } else {
+      console.log('ℹ️ [Notifications] No specific screen target in payload. Staying on current screen (heads-up banner displayed natively).');
     }
   } catch (error) {
     console.error('❌ [Notifications] Error handling notification tap:', error);

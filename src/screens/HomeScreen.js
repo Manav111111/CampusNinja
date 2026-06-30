@@ -238,13 +238,13 @@ export default function HomeScreen({ navigation }) {
               title="Notes" 
               iconName="book" 
               iconColor="#3B82F6" 
-              onPress={() => navigation.navigate('Subjects')}
+              onPress={() => navigation.navigate('Subjects', { initialTab: 'notes' })}
             />
             <QuickAccessCard 
               title="PYQs" 
               iconName="document-text" 
               iconColor="#F97316" 
-              onPress={() => navigation.navigate('Subjects')}
+              onPress={() => navigation.navigate('Subjects', { initialTab: 'pyqs' })}
             />
           </View>
           <View style={styles.row}>
@@ -252,13 +252,13 @@ export default function HomeScreen({ navigation }) {
               title="Syllabus" 
               iconName="clipboard" 
               iconColor="#10B981" 
-              onPress={() => navigation.navigate('Subjects')}
+              onPress={() => navigation.navigate('Subjects', { initialTab: 'syllabus' })}
             />
             <QuickAccessCard 
               title="Video Lectures" 
               iconName="play-circle" 
               iconColor="#8B5CF6" 
-              onPress={() => navigation.navigate('Subjects')}
+              onPress={() => navigation.navigate('Subjects', { initialTab: 'videos' })}
             />
           </View>
         </View>

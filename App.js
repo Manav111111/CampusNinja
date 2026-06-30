@@ -6,6 +6,7 @@ import * as Linking from 'expo-linking';
 import AppNavigator from './src/navigation/AppNavigator';
 import { handleAuthCallback } from './src/services/auth';
 import useNotifications from './src/hooks/useNotifications';
+import { CartProvider } from './src/context/CartContext';
 
 // ============================================================
 // NAVIGATION REF
@@ -57,6 +58,7 @@ const linking = {
       MainApp: '',
       Search: 'search',
       Notifications: 'notifications',
+      Cart: 'cart',
       SubjectDetail: 'subjects/:subjectId',
       ServiceDetail: 'services/:serviceId',
       OrderRequest: 'orders/new',
@@ -83,10 +85,12 @@ function AppInner() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer ref={navigationRef} linking={linking}>
-        <AppInner />
-        <StatusBar style="dark" />
-      </NavigationContainer>
+      <CartProvider>
+        <NavigationContainer ref={navigationRef} linking={linking}>
+          <AppInner />
+          <StatusBar style="dark" />
+        </NavigationContainer>
+      </CartProvider>
     </SafeAreaProvider>
   );
 }
