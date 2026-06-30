@@ -18,33 +18,36 @@ import * as DocumentPicker from 'expo-document-picker';
 import { supabase, createOrder, uploadOrderFile } from '../services/supabase';
 import { performGoogleLogin, getCurrentSession } from '../services/auth';
 
-const TOTAL_STEPS = 4;
-
-const StepIndicator = ({ currentStep }) => (
+const StepIndicator = ({ steps, currentStepIndex }) => (
   <View style={styles.stepIndicatorContainer}>
-    {[1, 2, 3, 4].map((step) => (
-      <View key={step} style={styles.stepRow}>
-        <View style={[
-          styles.stepCircle,
-          currentStep >= step ? styles.stepCircleActive : styles.stepCircleInactive
-        ]}>
-          {currentStep > step ? (
-            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-          ) : (
-            <Text style={[
-              styles.stepCircleText,
-              currentStep >= step ? styles.stepCircleTextActive : styles.stepCircleTextInactive
-            ]}>{step}</Text>
+    {steps.map((step, idx) => {
+      const stepNum = idx + 1;
+      const isActive = idx === currentStepIndex;
+      const isCompleted = idx < currentStepIndex;
+      return (
+        <View key={step.id} style={styles.stepRow}>
+          <View style={[
+            styles.stepCircle,
+            (isActive || isCompleted) ? styles.stepCircleActive : styles.stepCircleInactive
+          ]}>
+            {isCompleted ? (
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            ) : (
+              <Text style={[
+                styles.stepCircleText,
+                (isActive || isCompleted) ? styles.stepCircleTextActive : styles.stepCircleTextInactive
+              ]}>{stepNum}</Text>
+            )}
+          </View>
+          {idx < steps.length - 1 && (
+            <View style={[
+              styles.stepLine,
+              idx < currentStepIndex ? styles.stepLineActive : styles.stepLineInactive
+            ]} />
           )}
         </View>
-        {step < TOTAL_STEPS && (
-          <View style={[
-            styles.stepLine,
-            currentStep > step ? styles.stepLineActive : styles.stepLineInactive
-          ]} />
-        )}
-      </View>
-    ))}
+      );
+    })}
   </View>
 );
 
@@ -52,18 +55,32 @@ export default function OrderRequestScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { service } = route.params;
 
-  const requiresUpload = service.requires_file_upload !== false;
-  const stepLabels = [requiresUpload ? 'Upload' : 'Requirements', 'Login', 'Details', 'Confirm'];
+  // Determine if product strictly requires image/file upload based on admin setting
+  const requiresUpload = Boolean(service.requires_file_upload);
 
-  const [currentStep, setCurrentStep] = useState(1);
+  // Define steps dynamically
+  // If requiresUpload is true: Step 1: Guidelines & Upload, Step 2: Delivery Info, Step 3: Order Summary
+  // If requiresUpload is false: Step 1: Delivery Info, Step 2: Order Summary
+  const steps = requiresUpload 
+    ? [
+        { id: 'upload', label: 'Guidelines & Upload' },
+        { id: 'details', label: 'Delivery Info' },
+        { id: 'confirm', label: 'Order Summary' }
+      ]
+    : [
+        { id: 'details', label: 'Delivery Info' },
+        { id: 'confirm', label: 'Order Summary' }
+      ];
+
+  const [activeStepId, setActiveStepId] = useState(steps[0].id);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Step 1: Upload & Instructions
+  // Form States
   const [selectedFile, setSelectedFile] = useState(null);
   const [instructions, setInstructions] = useState('');
 
-  // Step 3: Contact Details
+  // Contact Details
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -96,11 +113,18 @@ export default function OrderRequestScreen({ route, navigation }) {
     };
   }, []);
 
+  // When user logs in during login step, auto advance to appropriate step
   useEffect(() => {
-    if (currentStep === 2 && user) {
-      setCurrentStep(3);
+    if (activeStepId === 'login' && user) {
+      if (requiresUpload) {
+        setActiveStepId('details');
+      } else {
+        setActiveStepId('confirm');
+      }
     }
-  }, [currentStep, user]);
+  }, [activeStepId, user, requiresUpload]);
+
+  const currentStepIndex = steps.findIndex(s => s.id === activeStepId);
 
   const pickDocument = async () => {
     try {
@@ -114,50 +138,59 @@ export default function OrderRequestScreen({ route, navigation }) {
       }
     } catch (error) {
       console.error('Document picker error:', error);
-      Alert.alert('Error', 'Failed to pick document.');
+      Alert.alert('Error', 'Failed to pick document or image.');
     }
   };
 
   const handleNext = () => {
-    if (currentStep === 1) {
-      // Step 1 validation: instructions required
-      if (!instructions.trim()) {
-        Alert.alert('Required', 'Please provide instructions for your order.');
+    if (activeStepId === 'upload') {
+      // Mandatory image/file upload validation when require product images is ON
+      if (!selectedFile) {
+        Alert.alert('Upload Required', 'Please upload your product image or assignment document before continuing.');
         return;
       }
-      // If user is already logged in, skip step 2
-      if (user) {
-        setCurrentStep(3);
-      } else {
-        setCurrentStep(2);
+      if (!instructions.trim()) {
+        Alert.alert('Instructions Required', 'Please enter instructions or details for your uploaded file.');
+        return;
       }
-    } else if (currentStep === 2) {
-      // Should not happen if logged in, but just in case
-      if (user) {
-        setCurrentStep(3);
+      if (!user) {
+        setActiveStepId('login');
       } else {
-        Alert.alert('Login Required', 'Please sign in with Google to continue.');
+        setActiveStepId('details');
       }
-    } else if (currentStep === 3) {
-      // Validate contact details
+    } else if (activeStepId === 'details') {
+      // Validate delivery info
       if (!name.trim() || !phone.trim() || !college.trim() || !address.trim()) {
-        Alert.alert('Required', 'Please fill in all required fields.');
+        Alert.alert('Required Fields', 'Please fill in Name, WhatsApp Number, College, and Delivery Address.');
         return;
       }
       if (phone.trim().length < 10) {
-        Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number.');
+        Alert.alert('Invalid Phone', 'Please enter a valid 10-digit WhatsApp number.');
         return;
       }
-      setCurrentStep(4);
+      if (!user) {
+        setActiveStepId('login');
+      } else {
+        setActiveStepId('confirm');
+      }
+    } else if (activeStepId === 'login') {
+      if (!user) {
+        Alert.alert('Sign In Required', 'Please sign in with Google to proceed.');
+      }
     }
   };
 
   const handleBack = () => {
-    if (currentStep === 3 && user) {
-      // Skip back to step 1 if user was already logged in
-      setCurrentStep(1);
-    } else if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+    if (activeStepId === 'login') {
+      setActiveStepId(requiresUpload ? 'upload' : 'details');
+    } else if (activeStepId === 'confirm') {
+      setActiveStepId('details');
+    } else if (activeStepId === 'details') {
+      if (requiresUpload) {
+        setActiveStepId('upload');
+      } else {
+        navigation.goBack();
+      }
     } else {
       navigation.goBack();
     }
@@ -179,20 +212,18 @@ export default function OrderRequestScreen({ route, navigation }) {
       const session = await getCurrentSession();
       const currentUser = user || session?.user;
       if (!currentUser) {
-        Alert.alert('Login Required', 'Please sign in with Google to place your order.');
-        setCurrentStep(2);
+        Alert.alert('Sign In Required', 'Please sign in with Google to place your order.');
+        setActiveStepId('login');
         return;
       }
 
-      // Upload file if selected
       let fileUrl = null;
       if (selectedFile) {
         try {
           fileUrl = await uploadOrderFile(selectedFile.uri, selectedFile.name);
         } catch (uploadError) {
           console.error('File upload failed:', uploadError);
-          // Continue without file — don't block the order
-          Alert.alert('File Upload Issue', 'Your file could not be uploaded, but your order will still be placed.');
+          Alert.alert('Upload Warning', 'File could not be uploaded, but your order will still be submitted.');
         }
       }
 
@@ -211,77 +242,65 @@ export default function OrderRequestScreen({ route, navigation }) {
       });
 
       Alert.alert(
-        '🎉 Order Placed!',
-        'Your order has been submitted successfully. Our team will contact you on WhatsApp shortly.\n\nPayment: Cash on Delivery',
+        '🎉 Order Placed Successfully!',
+        'We have received your order request. A CampusNinja coordinator will reach out to you on WhatsApp shortly.\n\nPayment Method: Cash on Delivery',
         [{ text: 'Go to Home', onPress: () => navigation.navigate('MainApp') }]
       );
 
     } catch (error) {
       console.error('Order submission error:', error);
-      Alert.alert('Error', 'Failed to place order. Please try again.');
+      Alert.alert('Order Error', 'Failed to submit order. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderStep1 = () => (
+  const renderStepUpload = () => (
     <View style={styles.stepContent}>
-      {requiresUpload ? (
-        <>
-          <Text style={styles.stepTitle}>Upload Your Questions</Text>
-          <Text style={styles.stepSubtitle}>
-            {service.upload_instructions || 'Upload a PDF or image of your assignment/questions'}
-          </Text>
+      <View style={styles.guidelinesHeader}>
+        <Ionicons name="information-circle" size={24} color="#2563EB" />
+        <Text style={styles.guidelinesTitle}>Product Upload Guidelines</Text>
+      </View>
+      <Text style={styles.stepSubtitle}>
+        {service.upload_instructions || 'Please upload clearly legible images or PDF documents required for this custom order.'}
+      </Text>
 
-          <TouchableOpacity style={styles.uploadArea} onPress={pickDocument}>
-            {selectedFile ? (
-              <View style={styles.fileSelected}>
-                <View style={styles.fileIconBg}>
-                  <Ionicons name="document-text" size={28} color="#2563EB" />
-                </View>
-                <View style={styles.fileInfo}>
-                  <Text style={styles.fileName} numberOfLines={1}>{selectedFile.name}</Text>
-                  <Text style={styles.fileSize}>
-                    {selectedFile.size ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'File selected'}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => setSelectedFile(null)}>
-                  <Ionicons name="close-circle" size={24} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.uploadPlaceholder}>
-                <View style={styles.uploadIconBg}>
-                  <Ionicons name="cloud-upload-outline" size={32} color="#2563EB" />
-                </View>
-                <Text style={styles.uploadText}>Tap to Upload PDF / Image</Text>
-                <Text style={styles.uploadHint}>Supports PDF, JPG, PNG</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+      <TouchableOpacity style={styles.uploadArea} onPress={pickDocument} activeOpacity={0.8}>
+        {selectedFile ? (
+          <View style={styles.fileSelected}>
+            <View style={styles.fileIconBg}>
+              <Ionicons name="image" size={28} color="#2563EB" />
+            </View>
+            <View style={styles.fileInfo}>
+              <Text style={styles.fileName} numberOfLines={1}>{selectedFile.name}</Text>
+              <Text style={styles.fileSize}>
+                {selectedFile.size ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'File selected'}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setSelectedFile(null)} style={{ padding: 6 }}>
+              <Ionicons name="close-circle" size={24} color="#EF4444" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.uploadPlaceholder}>
+            <View style={styles.uploadIconBg}>
+              <Ionicons name="cloud-upload-outline" size={32} color="#2563EB" />
+            </View>
+            <Text style={styles.uploadText}>Tap to Upload Required Image / PDF</Text>
+            <Text style={styles.uploadHint}>Mandatory for this custom product</Text>
+          </View>
+        )}
+      </TouchableOpacity>
 
-          <Text style={[styles.stepTitle, { marginTop: 24 }]}>Instructions *</Text>
-          <Text style={styles.stepSubtitle}>How should the assignment be done?</Text>
-        </>
-      ) : (
-        <>
-          <Text style={styles.stepTitle}>Requirements & Instructions</Text>
-          <Text style={styles.stepSubtitle}>
-            {service.upload_instructions || 'Please describe what you need or provide your order instructions below.'}
-          </Text>
-        </>
-      )}
+      <Text style={[styles.stepTitle, { marginTop: 24 }]}>Instructions & Notes *</Text>
+      <Text style={styles.stepSubtitle}>Provide exact instructions for formatting, deadline, or specifications</Text>
 
       <TextInput
         style={styles.textArea}
-        placeholder={
-          requiresUpload
-            ? "E.g., Handwritten, use black pen, include diagrams, deadline is 25th June..."
-            : "Describe your requirements in detail..."
-        }
+        placeholder="E.g., Please make sure diagram labels are clear, use black pen..."
         placeholderTextColor="#9CA3AF"
         multiline
-        numberOfLines={6}
+        numberOfLines={5}
         textAlignVertical="top"
         value={instructions}
         onChangeText={setInstructions}
@@ -289,38 +308,10 @@ export default function OrderRequestScreen({ route, navigation }) {
     </View>
   );
 
-  const renderStep2 = () => (
+  const renderStepDetails = () => (
     <View style={styles.stepContent}>
-      <View style={styles.loginContainer}>
-        <View style={styles.loginIconBg}>
-          <Ionicons name="shield-checkmark" size={48} color="#2563EB" />
-        </View>
-        <Text style={styles.loginTitle}>Sign in to Continue</Text>
-        <Text style={styles.loginSubtitle}>
-          Sign in with Google so we can securely track your order and contact you.
-        </Text>
-        <TouchableOpacity 
-          style={styles.googleButton} 
-          onPress={handleGoogleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#111827" />
-          ) : (
-            <>
-              <Ionicons name="logo-google" size={20} color="#111827" style={{ marginRight: 10 }} />
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderStep3 = () => (
-    <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Contact Details</Text>
-      <Text style={styles.stepSubtitle}>We'll contact you on WhatsApp for updates</Text>
+      <Text style={styles.stepTitle}>Delivery Information</Text>
+      <Text style={styles.stepSubtitle}>Where should we deliver your order or reach you?</Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Full Name *</Text>
@@ -344,7 +335,7 @@ export default function OrderRequestScreen({ route, navigation }) {
         <Text style={styles.inputLabel}>WhatsApp Number *</Text>
         <TextInput 
           style={styles.input} 
-          placeholder="10-digit phone number" 
+          placeholder="10-digit mobile number" 
           value={phone} 
           onChangeText={setPhone}
           keyboardType="phone-pad"
@@ -354,24 +345,66 @@ export default function OrderRequestScreen({ route, navigation }) {
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>College Name *</Text>
-        <TextInput style={styles.input} placeholder="Your college" value={college} onChangeText={setCollege} />
+        <TextInput style={styles.input} placeholder="Your college or campus" value={college} onChangeText={setCollege} />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Delivery Address *</Text>
+        <Text style={styles.inputLabel}>Delivery Address / Hostel Room *</Text>
         <TextInput 
-          style={[styles.input, { minHeight: 70 }]} 
-          placeholder="Where should we deliver?" 
+          style={[styles.input, { minHeight: 64 }]} 
+          placeholder="Hostel, Room Number, or Residential Address" 
           value={address} 
           onChangeText={setAddress}
           multiline
           textAlignVertical="top"
         />
       </View>
+
+      {!requiresUpload && (
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Additional Instructions (Optional)</Text>
+          <TextInput 
+            style={[styles.input, { minHeight: 80 }]} 
+            placeholder="Any specific delivery instructions or notes..." 
+            value={instructions} 
+            onChangeText={setInstructions}
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+      )}
     </View>
   );
 
-  const renderStep4 = () => (
+  const renderStepLogin = () => (
+    <View style={styles.stepContent}>
+      <View style={styles.loginContainer}>
+        <View style={styles.loginIconBg}>
+          <Ionicons name="shield-checkmark" size={48} color="#2563EB" />
+        </View>
+        <Text style={styles.loginTitle}>Sign in to Place Order</Text>
+        <Text style={styles.loginSubtitle}>
+          Secure Google Sign-In ensures you can track your order status and receive direct WhatsApp updates.
+        </Text>
+        <TouchableOpacity 
+          style={styles.googleButton} 
+          onPress={handleGoogleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#111827" />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={20} color="#111827" style={{ marginRight: 10 }} />
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderStepConfirm = () => (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Order Summary</Text>
 
@@ -385,24 +418,24 @@ export default function OrderRequestScreen({ route, navigation }) {
 
       <View style={styles.summarySection}>
         <SummaryRow icon="person" label="Name" value={name} />
-        <SummaryRow icon="call" label="Phone" value={phone} />
+        <SummaryRow icon="call" label="WhatsApp" value={phone} />
         <SummaryRow icon="mail" label="Email" value={email} />
         <SummaryRow icon="school" label="College" value={college} />
         <SummaryRow icon="location" label="Address" value={address} />
-        {selectedFile && <SummaryRow icon="document-text" label="File" value={selectedFile.name} />}
-        <SummaryRow icon="create" label="Instructions" value={instructions} />
+        {selectedFile && <SummaryRow icon="document-text" label="Uploaded File" value={selectedFile.name} />}
+        {instructions ? <SummaryRow icon="create" label={requiresUpload ? "Instructions" : "Additional Instructions"} value={instructions} /> : null}
       </View>
 
       <View style={styles.paymentCard}>
         <View style={styles.paymentHeader}>
-          <Ionicons name="card-outline" size={20} color="#059669" />
+          <Ionicons name="shield-checkmark" size={20} color="#059669" />
           <Text style={styles.paymentTitle}>Payment Method</Text>
         </View>
         <View style={styles.codBadge}>
-          <Ionicons name="cash-outline" size={20} color="#059669" style={{ marginRight: 8 }} />
+          <Ionicons name="cash-outline" size={22} color="#059669" style={{ marginRight: 10 }} />
           <View>
-            <Text style={styles.codText}>Cash on Delivery</Text>
-            <Text style={styles.codSubtext}>Pay when you receive your assignment</Text>
+            <Text style={styles.codText}>Cash on Delivery (COD)</Text>
+            <Text style={styles.codSubtext}>Pay securely upon delivery or fulfillment</Text>
           </View>
         </View>
       </View>
@@ -412,7 +445,7 @@ export default function OrderRequestScreen({ route, navigation }) {
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1 }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {/* Header */}
@@ -421,37 +454,39 @@ export default function OrderRequestScreen({ route, navigation }) {
             <Ionicons name="arrow-back" size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {currentStep === 1 ? (requiresUpload ? 'Upload & Instructions' : 'Order Requirements') : 
-             currentStep === 2 ? 'Sign In' :
-             currentStep === 3 ? 'Your Details' : 'Confirm Order'}
+            {activeStepId === 'login' ? 'Sign In' :
+             activeStepId === 'upload' ? 'Upload & Guidelines' :
+             activeStepId === 'details' ? 'Delivery Information' : 'Review & Confirm'}
           </Text>
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Step Indicator */}
-        <View style={styles.stepIndicatorWrapper}>
-          <StepIndicator currentStep={currentStep} />
-          <View style={styles.stepLabelsRow}>
-            {stepLabels.map((label, i) => (
-              <Text key={i} style={[
-                styles.stepLabelText,
-                currentStep >= i + 1 ? { color: '#2563EB' } : { color: '#9CA3AF' }
-              ]}>{label}</Text>
-            ))}
+        {/* Step Indicator (Hidden only on login step) */}
+        {activeStepId !== 'login' && (
+          <View style={styles.stepIndicatorWrapper}>
+            <StepIndicator steps={steps} currentStepIndex={currentStepIndex} />
+            <View style={styles.stepLabelsRow}>
+              {steps.map((s, idx) => (
+                <Text key={s.id} style={[
+                  styles.stepLabelText,
+                  idx === currentStepIndex ? { color: '#2563EB', fontWeight: '700' } : { color: '#9CA3AF' }
+                ]}>{s.label}</Text>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {currentStep === 1 && renderStep1()}
-          {currentStep === 2 && renderStep2()}
-          {currentStep === 3 && renderStep3()}
-          {currentStep === 4 && renderStep4()}
+          {activeStepId === 'upload' && renderStepUpload()}
+          {activeStepId === 'details' && renderStepDetails()}
+          {activeStepId === 'login' && renderStepLogin()}
+          {activeStepId === 'confirm' && renderStepConfirm()}
         </ScrollView>
 
-        {/* Bottom Action Bar */}
-        {currentStep !== 2 && (
+        {/* Bottom Action Bar with Android Safe Area Inset Protection */}
+        {activeStepId !== 'login' && (
           <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            {currentStep < 4 ? (
+            {activeStepId !== 'confirm' ? (
               <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
                 <Text style={styles.nextButtonText}>Continue</Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
@@ -497,7 +532,7 @@ const styles = StyleSheet.create({
   },
   backButton: { padding: 8 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: 'bold', color: '#111827', textAlign: 'center' },
-  stepIndicatorWrapper: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
+  stepIndicatorWrapper: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12, backgroundColor: '#FAFAFA', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   stepIndicatorContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   stepRow: { flexDirection: 'row', alignItems: 'center' },
   stepCircle: {
@@ -507,28 +542,29 @@ const styles = StyleSheet.create({
   stepCircleInactive: { backgroundColor: '#E5E7EB' },
   stepCircleText: { fontSize: 12, fontWeight: 'bold' },
   stepCircleTextActive: { color: '#FFFFFF' },
-  stepCircleTextInactive: { color: '#9CA3AF' },
-  stepLine: { width: 40, height: 2, marginHorizontal: 4 },
+  stepCircleTextInactive: { color: '#6B7280' },
+  stepLine: { width: 50, height: 2, marginHorizontal: 6 },
   stepLineActive: { backgroundColor: '#2563EB' },
   stepLineInactive: { backgroundColor: '#E5E7EB' },
-  stepLabelsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, paddingHorizontal: 4 },
-  stepLabelText: { fontSize: 11, fontWeight: '500' },
-  scrollContent: { paddingBottom: 40 },
+  stepLabelsRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 },
+  stepLabelText: { fontSize: 12, fontWeight: '500' },
+  scrollContent: { paddingBottom: 60 },
   stepContent: { padding: 20 },
+  guidelinesHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
+  guidelinesTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
   stepTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 4 },
-  stepSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 16 },
-  // Upload Area
+  stepSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 16, lineHeight: 20 },
   uploadArea: {
-    borderWidth: 2, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 16,
-    padding: 20, backgroundColor: '#FAFAFA',
+    borderWidth: 2, borderColor: '#3B82F6', borderStyle: 'dashed', borderRadius: 16,
+    padding: 24, backgroundColor: '#EFF6FF',
   },
-  uploadPlaceholder: { alignItems: 'center', paddingVertical: 16 },
+  uploadPlaceholder: { alignItems: 'center', paddingVertical: 12 },
   uploadIconBg: {
     width: 64, height: 64, borderRadius: 32, backgroundColor: '#DBEAFE',
     justifyContent: 'center', alignItems: 'center', marginBottom: 12,
   },
-  uploadText: { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 4 },
-  uploadHint: { fontSize: 12, color: '#9CA3AF' },
+  uploadText: { fontSize: 15, fontWeight: '700', color: '#1E40AF', marginBottom: 4 },
+  uploadHint: { fontSize: 12, color: '#60A5FA', fontWeight: '500' },
   fileSelected: { flexDirection: 'row', alignItems: 'center' },
   fileIconBg: {
     width: 48, height: 48, borderRadius: 12, backgroundColor: '#DBEAFE',
@@ -537,13 +573,11 @@ const styles = StyleSheet.create({
   fileInfo: { flex: 1 },
   fileName: { fontSize: 14, fontWeight: '600', color: '#111827' },
   fileSize: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  // Text Area
   textArea: {
     backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: '#111827',
-    minHeight: 130, textAlignVertical: 'top',
+    minHeight: 110, textAlignVertical: 'top',
   },
-  // Login
   loginContainer: { alignItems: 'center', paddingVertical: 40 },
   loginIconBg: {
     width: 80, height: 80, borderRadius: 40, backgroundColor: '#DBEAFE',
@@ -558,39 +592,35 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
   googleButtonText: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  // Form Inputs
   inputGroup: { marginBottom: 16 },
-  inputLabel: { fontSize: 13, fontWeight: '500', color: '#374151', marginBottom: 6 },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
   input: {
     backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#111827',
   },
-  inputLocked: { backgroundColor: '#F3F4F6', color: '#9CA3AF' },
-  // Summary
+  inputLocked: { backgroundColor: '#F3F4F6', color: '#6B7280' },
   summaryCard: {
     backgroundColor: '#F9FAFB', borderRadius: 16, padding: 20, alignItems: 'center',
     marginBottom: 20, borderWidth: 1, borderColor: '#F3F4F6',
   },
-  summaryImage: { width: 60, height: 60, borderRadius: 12, marginBottom: 12 },
+  summaryImage: { width: 64, height: 64, borderRadius: 12, marginBottom: 12 },
   summaryServiceName: { fontSize: 18, fontWeight: 'bold', color: '#111827', textAlign: 'center', marginBottom: 4 },
-  summaryPrice: { fontSize: 22, fontWeight: '900', color: '#2563EB' },
+  summaryPrice: { fontSize: 24, fontWeight: '900', color: '#2563EB' },
   summarySection: {
     backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6',
     padding: 16, marginBottom: 16,
   },
   summaryRow: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' },
   summaryLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 2 },
-  summaryValue: { fontSize: 14, color: '#111827' },
-  // Payment
+  summaryValue: { fontSize: 14, color: '#111827', fontWeight: '500' },
   paymentCard: {
-    backgroundColor: '#ECFDF5', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#D1FAE5',
+    backgroundColor: '#ECFDF5', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#A7F3D0',
   },
   paymentHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   paymentTitle: { fontSize: 15, fontWeight: 'bold', color: '#059669', marginLeft: 8 },
   codBadge: { flexDirection: 'row', alignItems: 'center' },
-  codText: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  codSubtext: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  // Bottom Bar
+  codText: { fontSize: 15, fontWeight: '700', color: '#065F46' },
+  codSubtext: { fontSize: 12, color: '#047857', marginTop: 2 },
   bottomBar: {
     backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingTop: 16,
     borderTopWidth: 1, borderTopColor: '#E5E7EB',

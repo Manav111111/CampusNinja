@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 
@@ -14,6 +15,9 @@ import ProfileScreen from '../screens/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 export default function BottomTabs() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 22);
+
   return (
     <Tab.Navigator
       initialRouteName="Home"
@@ -42,16 +46,14 @@ export default function BottomTabs() {
           backgroundColor: COLORS.background,
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          // Automatically handle safe area by removing hardcoded height,
-          // but give it a nice minimum height and padding for Android
-          minHeight: Platform.OS === 'android' ? 65 : 85,
+          height: 56 + bottomInset,
           paddingTop: 8,
-          paddingBottom: Platform.OS === 'android' ? 10 : 25,
+          paddingBottom: bottomInset,
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '500',
-          paddingBottom: 4,
+          fontWeight: '600',
+          paddingBottom: 2,
         },
       })}
     >

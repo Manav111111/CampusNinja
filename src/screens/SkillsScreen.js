@@ -116,7 +116,7 @@ export default function SkillsScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 80, 110) }]}>
         
         {/* Dynamic Banners */}
         {banners.length > 0 ? (

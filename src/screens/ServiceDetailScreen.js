@@ -117,7 +117,7 @@ export default function ServiceDetailScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Floating Buy Now Button */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={styles.priceContainer}>
           <Text style={styles.totalLabel}>Total Price</Text>
           <Text style={styles.totalPrice}>₹{service.price}</Text>

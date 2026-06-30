@@ -215,7 +215,7 @@ export default function SubjectsScreen({ navigation }) {
           data={filteredSubjects}
           keyExtractor={(item) => item.id.toString()}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: Math.max(insets.bottom + 80, 110) }]}
           renderItem={({ item }) => (
             <TouchableOpacity 
               style={[styles.subjectCard, { backgroundColor: item.bgColor || '#F8FAFC' }]}

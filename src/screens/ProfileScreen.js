@@ -123,7 +123,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 80, 110) }]}>
         
         {/* Hero User Card */}
         <View style={styles.heroCard}>
