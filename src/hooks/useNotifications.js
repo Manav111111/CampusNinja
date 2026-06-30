@@ -174,13 +174,13 @@ export default function useNotifications(navigationRef) {
       isMounted = false;
 
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
       if (tokenRefreshListener.current) {
-        Notifications.removeNotificationSubscription(tokenRefreshListener.current);
+        tokenRefreshListener.current.remove();
       }
       if (authSubscription) {
         authSubscription.unsubscribe();
