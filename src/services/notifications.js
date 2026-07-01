@@ -10,6 +10,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { getInstallTimestamp } from './storage';
 
 // ────────────────────────────────────────────────────────────────
 // 1. ANDROID NOTIFICATION CHANNEL
@@ -115,6 +116,7 @@ export const saveDeviceToken = async (userId, fcmToken, platform = 'android') =>
   try {
     const branchId = await AsyncStorage.getItem('userBranchId');
     const semesterId = await AsyncStorage.getItem('userSemesterId');
+    const installTs = await getInstallTimestamp();
 
     console.log('📋 [TEMP LOG] Saving FCM Token to backend:', {
       token: fcmToken.substring(0, 20) + '...',
@@ -122,11 +124,13 @@ export const saveDeviceToken = async (userId, fcmToken, platform = 'android') =>
       platform,
       branch_id: branchId || null,
       semester_id: semesterId || null,
+      first_install_at: installTs,
     });
 
     const payload = {
       token: fcmToken,
       platform,
+      first_install_at: installTs,
       updated_at: new Date().toISOString(),
     };
 

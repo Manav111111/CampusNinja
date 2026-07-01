@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { getMarketplaceServices, getBanners } from '../services/supabase';
 import { useCart } from '../context/CartContext';
+import { Toast } from '../context/ToastContext';
 
 const { width } = Dimensions.get('window');
 
@@ -69,7 +70,13 @@ export default function MarketplaceScreen({ navigation }) {
 
   const handleAddToCart = (item) => {
     addToCart(item, 1);
-    Alert.alert('Added to Cart 🛒', `${item.title || item.name} has been added to your cart.`);
+    Toast.show({
+      type: 'success',
+      title: 'Added to Cart',
+      message: `${item.title || item.name} added to your cart.`,
+      actionText: 'View Cart',
+      onAction: () => navigation.navigate('Cart'),
+    });
   };
 
   const filteredServices = selectedFilter === 'all' 

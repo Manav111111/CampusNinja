@@ -11,6 +11,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllSubjects, getMarketplaceServices, getSkills } from '../services/supabase';
+import { fuzzyMatchItem } from '../utils/searchUtils';
+import { getSubjectVisualIdentity } from '../utils/subjectTheme';
 
 const fallbackSubjects = [
   { id: 'sub-1', title: 'Physics', icon: 'aperture-outline', color: '#8B5CF6' },
@@ -20,6 +22,7 @@ const fallbackSubjects = [
   { id: 'sub-5', title: 'Communication', icon: 'chatbubble-ellipses-outline', color: '#3B82F6' },
   { id: 'sub-6', title: 'Data Structures & Algorithms', icon: 'git-network-outline', color: '#EF4444' },
   { id: 'sub-7', title: 'Operating Systems', icon: 'desktop-outline', color: '#10B981' },
+  { id: 'sub-8', title: 'Environmental Science', icon: 'leaf-outline', color: '#2563EB' },
 ];
 
 const fallbackMarketplace = [
@@ -91,29 +94,24 @@ export default function SearchScreen({ navigation }) {
     setRecentSearches([]);
   };
 
-  // Filter combined search results
-  const query = searchQuery.trim().toLowerCase();
-  const matchedSubjects = query ? allSubjects.filter(sub => {
-    const titleMatch = (sub.title || sub.name || '').toLowerCase().includes(query);
-    const codeMatch = (sub.code || '').toLowerCase().includes(query);
-    return titleMatch || codeMatch;
-  }).map(sub => ({
-    id: `sub_${sub.id}`,
-    originalItem: sub,
-    title: sub.title || sub.name,
-    type: 'Academic Subject',
-    actionText: 'View Subject',
-    icon: sub.icon || sub.icon_name || 'book-outline',
-    themeColor: sub.color || sub.theme_color || '#8B5CF6',
-    bgColor: (sub.color || sub.theme_color || '#8B5CF6') + '20',
-    resultType: 'Subject'
-  })) : [];
+  // Filter combined search results with fuzzy matching
+  const query = searchQuery.trim();
+  const matchedSubjects = query ? allSubjects.filter(sub => fuzzyMatchItem(query, sub)).map(sub => {
+    const theme = getSubjectVisualIdentity(sub.title || sub.name);
+    return {
+      id: `sub_${sub.id}`,
+      originalItem: sub,
+      title: sub.title || sub.name,
+      type: 'Academic Subject',
+      actionText: 'View Subject',
+      icon: 'book-outline',
+      themeColor: theme.primary,
+      bgColor: theme.bg,
+      resultType: 'Subject'
+    };
+  }) : [];
 
-  const matchedSkills = query ? allSkills.filter(sk => {
-    const titleMatch = (sk.name || sk.title || '').toLowerCase().includes(query);
-    const descMatch = (sk.description || '').toLowerCase().includes(query);
-    return titleMatch || descMatch;
-  }).map(sk => ({
+  const matchedSkills = query ? allSkills.filter(sk => fuzzyMatchItem(query, sk)).map(sk => ({
     id: `skill_${sk.id}`,
     originalItem: sk,
     title: sk.name || sk.title,
@@ -125,12 +123,7 @@ export default function SearchScreen({ navigation }) {
     resultType: 'Skill'
   })) : [];
 
-  const matchedMarketplace = query ? allMarketplace.filter(item => {
-    const titleMatch = (item.title || '').toLowerCase().includes(query);
-    const catMatch = (item.category || '').toLowerCase().includes(query);
-    const descMatch = (item.description || '').toLowerCase().includes(query);
-    return titleMatch || catMatch || descMatch;
-  }).map(item => ({
+  const matchedMarketplace = query ? allMarketplace.filter(item => fuzzyMatchItem(query, item)).map(item => ({
     id: `market_${item.id}`,
     originalItem: item,
     title: item.title,

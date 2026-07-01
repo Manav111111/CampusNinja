@@ -7,6 +7,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { handleAuthCallback } from './src/services/auth';
 import useNotifications from './src/hooks/useNotifications';
 import { CartProvider } from './src/context/CartContext';
+import { ToastProvider } from './src/context/ToastContext';
 
 // ============================================================
 // NAVIGATION REF
@@ -86,10 +87,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <CartProvider>
-        <NavigationContainer ref={navigationRef} linking={linking}>
-          <AppInner />
-          <StatusBar style="dark" />
-        </NavigationContainer>
+        <ToastProvider>
+          <NavigationContainer ref={navigationRef} linking={linking}>
+            <AppInner />
+            <StatusBar style="dark" />
+          </NavigationContainer>
+        </ToastProvider>
       </CartProvider>
     </SafeAreaProvider>
   );

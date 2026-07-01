@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   ACADEMIC_SETUP: '@campus_ninja_academic_setup',
   ONBOARDING_COMPLETE: '@campus_ninja_onboarding',
   RECENT_SEARCHES: '@campus_ninja_recent_searches',
+  FIRST_INSTALL_AT: '@campus_ninja_first_install_at',
 };
 
 // ============================================================
@@ -164,5 +165,36 @@ export const clearAllData = async () => {
   } catch (error) {
     console.error('Error clearing all data:', error);
     throw error;
+  }
+};
+
+// ============================================================
+// INSTALLATION TIMESTAMP
+// ============================================================
+
+/**
+ * Get or initialize the installation timestamp of the app.
+ * New users will only see notifications published on or after this timestamp.
+ */
+export const getInstallTimestamp = async () => {
+  try {
+    let timestamp = await AsyncStorage.getItem(STORAGE_KEYS.FIRST_INSTALL_AT);
+    if (!timestamp) {
+      // Check if this user was already an existing app user before this feature
+      const onboarding = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE);
+      const branchId = await AsyncStorage.getItem('userBranchId');
+      if (onboarding || branchId) {
+        // Existing user upgrading: give an early timestamp so existing notifications remain visible
+        timestamp = '2024-01-01T00:00:00.000Z';
+      } else {
+        // Brand new installation today
+        timestamp = new Date().toISOString();
+      }
+      await AsyncStorage.setItem(STORAGE_KEYS.FIRST_INSTALL_AT, timestamp);
+    }
+    return timestamp;
+  } catch (err) {
+    console.error('Error getting install timestamp:', err);
+    return '2024-01-01T00:00:00.000Z';
   }
 };

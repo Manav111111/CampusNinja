@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/colors';
+import { Toast } from '../context/ToastContext';
 
 export default function SavedResourcesScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -50,7 +51,7 @@ export default function SavedResourcesScreen({ navigation }) {
 
   const handleResourcePress = async (item) => {
     if (!item.targetUrl) {
-      Alert.alert('No Link Available', 'This resource does not have an attached link.');
+      Toast.show({ type: 'warning', title: 'No Link Available', message: 'This resource does not have an attached link.' });
       return;
     }
     try {
@@ -60,7 +61,7 @@ export default function SavedResourcesScreen({ navigation }) {
         await WebBrowser.openBrowserAsync(item.targetUrl);
       }
     } catch (e) {
-      Alert.alert('Error', 'Unable to open resource link.');
+      Toast.show({ type: 'error', title: 'Error', message: 'Unable to open resource link.' });
     }
   };
 

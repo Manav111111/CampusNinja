@@ -1,0 +1,113 @@
+PRIVACY POLICY FOR CAMPUS NINJA
+
+Effective Date: July 1, 2026
+Last Updated: July 1, 2026
+
+--------------------------------------------------------------------------------
+1. INTRODUCTION
+--------------------------------------------------------------------------------
+Welcome to Campus Ninja ("we," "our," or "us"). We are dedicated to respecting your privacy and protecting the personal data you share with us. This Privacy Policy outlines how we collect, use, store, share, and protect your information when you use our Android mobile application (Campus Ninja) and associated services.
+
+By downloading, installing, or using Campus Ninja, you agree to the practices described in this Privacy Policy. If you do not agree with the terms of this policy, please do not use our application.
+
+--------------------------------------------------------------------------------
+2. INFORMATION WE COLLECT
+--------------------------------------------------------------------------------
+To provide an optimized and tailored educational experience, we collect only necessary information:
+
+A. Information You Provide Directly:
+- Account Registration Data: Email address, full name, and profile picture (if provided via standard signup or Google Sign-In).
+- Academic Setup Preferences: Educational institution, degree course, engineering branch, and semester selection.
+- User-Generated Content: Bookmarks, saved study resources, or inquiries submitted through the app.
+
+B. Automatically Collected Information:
+- Device Information: Device model, OS version, unique device identifiers (push notification tokens), and preferred app language.
+- Usage Statistics: Information about interactions with study notes, previous year question papers (PYQs), and video links to optimize content availability.
+
+--------------------------------------------------------------------------------
+3. HOW WE USE INFORMATION
+--------------------------------------------------------------------------------
+We use the collected information to:
+1. Deliver core educational services tailored to your selected branch and semester.
+2. Send push notifications regarding new study materials, PYQs, and syllabus alerts.
+3. Analyze app technical performance and prevent server errors or crashes.
+4. Provide technical support and respond to user feedback.
+5. Prevent unauthorized access or fraudulent usage.
+
+--------------------------------------------------------------------------------
+4. AUTHENTICATION INFORMATION
+--------------------------------------------------------------------------------
+Campus Ninja utilizes Supabase Authentication for identity verification:
+- Standard Sign-Up: Passwords are salted and hashed using industry-standard cryptography before storage on Supabase servers. We never store raw passwords.
+- Google Sign-In: We receive an OAuth token and your public Google profile details (name and email). We do not gain access to private Google contacts, files, or account passwords.
+
+--------------------------------------------------------------------------------
+5. DEVICE INFORMATION
+--------------------------------------------------------------------------------
+We access minimal device telemetry strictly to ensure app compatibility and UI rendering. We do not access sensitive hardware features such as your camera, microphone, contacts, or precise GPS location unless explicitly authorized for a specific in-app feature.
+
+--------------------------------------------------------------------------------
+6. PUSH NOTIFICATIONS
+--------------------------------------------------------------------------------
+To deliver important educational alerts, we use Expo Push Notifications and Firebase Cloud Messaging (FCM). A unique device push token is securely registered upon launch. You may disable notifications anytime via your Android device system settings (Settings > Apps > Campus Ninja > Notifications).
+
+--------------------------------------------------------------------------------
+7. DATA STORAGE AND SECURITY
+--------------------------------------------------------------------------------
+- Infrastructure Provider: Our database, user authentication, and storage infrastructure are hosted by Supabase on enterprise-grade cloud servers.
+- Security Practices: All data transmissions use Transport Layer Security (TLS/HTTPS). Row-Level Security (RLS) ensures users can only access and modify their own data.
+
+--------------------------------------------------------------------------------
+8. THIRD-PARTY SERVICES
+--------------------------------------------------------------------------------
+We integrate reputable third-party providers:
+- Supabase Inc.: Backend database, storage, and auth.
+- Google Cloud / Firebase Cloud Messaging (FCM): Push notifications routing.
+- Expo: Application runtime and native hardware bridging.
+
+--------------------------------------------------------------------------------
+9. EXTERNAL LINKS
+--------------------------------------------------------------------------------
+Campus Ninja provides external links to curated educational resources and community platforms (such as YouTube educational videos, WhatsApp discussion forums, and Instagram groups). Once you click these links, you leave Campus Ninja. We are not responsible for the privacy practices or content of external platforms.
+
+--------------------------------------------------------------------------------
+10. CHILDREN'S PRIVACY
+--------------------------------------------------------------------------------
+Campus Ninja is designed for college and engineering students. We do not knowingly solicit or collect personal data from children under 13. If discovered, such records will be immediately erased upon contacting support@example.com.
+
+--------------------------------------------------------------------------------
+11. DATA RETENTION
+--------------------------------------------------------------------------------
+Personal data is retained only while your account remains active. Local downloaded cached files stay on your device until cleared or uninstalled. Account deletion triggers complete data erasure from active databases within 30 days.
+
+--------------------------------------------------------------------------------
+12. USER RIGHTS
+--------------------------------------------------------------------------------
+You have the right to access your stored profile summary, correct academic preferences or personal details directly in the app, and revoke push notification or authentication permissions at any time.
+
+--------------------------------------------------------------------------------
+13. ACCOUNT DELETION PROCESS
+--------------------------------------------------------------------------------
+We provide two straightforward ways to permanently delete your account and associated data:
+1. In-App Deletion: Navigate to Profile > Settings > Delete Account inside the Campus Ninja mobile app.
+2. Email Deletion Request: Send an email to support@example.com with the subject line "Account Deletion Request".
+
+Upon confirmation, all personal profile records, saved bookmarks, and push notification tokens are permanently erased from our Supabase database.
+
+--------------------------------------------------------------------------------
+14. COOKIES AND TRACKING TECHNOLOGIES
+--------------------------------------------------------------------------------
+Campus Ninja does not utilize web browser cookies or cross-app advertising tracking technologies. We do not sell, rent, or share user information with third-party data brokers or ad networks.
+
+--------------------------------------------------------------------------------
+15. CHANGES TO THIS PRIVACY POLICY
+--------------------------------------------------------------------------------
+We may update this policy periodically. Material updates will be reflected in the "Last Updated" date and notified via in-app banner or push notification. Continued app usage indicates acceptance of any modifications.
+
+--------------------------------------------------------------------------------
+16. CONTACT INFORMATION
+--------------------------------------------------------------------------------
+If you have questions regarding this Privacy Policy or data handling:
+- App Name: Campus Ninja
+- Support Email: support@example.com
+- Mailing Address: Campus Ninja Support Team, [Your Institution / City, Country Placeholder]

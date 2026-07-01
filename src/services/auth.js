@@ -1,7 +1,7 @@
 import * as AuthSession from 'expo-auth-session';
 import * as Linking from 'expo-linking';
-import { Alert } from 'react-native';
 import { supabase } from './supabase';
+import { Toast } from '../context/ToastContext';
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ export const performGoogleLogin = async () => {
     return false;
   } catch (error) {
     console.error('Google Login Error:', error);
-    Alert.alert('Login Failed', error.message || 'An unknown error occurred');
+    Toast.show({ type: 'error', title: 'Login Failed', message: error.message || 'An unknown error occurred' });
     return false;
   }
 };
@@ -100,6 +100,6 @@ export const handleLogout = async () => {
     lastHandledUrl = null; 
   } catch (error) {
     console.error('Logout error', error);
-    Alert.alert('Logout Failed', error.message);
+    Toast.show({ type: 'error', title: 'Logout Failed', message: error.message });
   }
 };

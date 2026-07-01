@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -16,12 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import { COLORS } from '../constants/colors';
-import { supabase } from '../services/supabase';
+import { supabase, getSocialLinks } from '../services/supabase';
 import { performGoogleLogin, handleLogout, getCurrentSession } from '../services/auth';
+import { Toast } from '../context/ToastContext';
 
 const { width } = Dimensions.get('window');
 
-const MenuRow = ({ label, icon, iconColor, iconBg, value, onPress, isLast, isDestructive }) => (
+const MenuRow = ({ label, subtitle, icon, iconColor, iconBg, value, badge, onPress, isLast, isDestructive }) => (
   <TouchableOpacity
     style={[styles.menuRow, isLast && styles.menuRowLast]}
     onPress={onPress}
@@ -29,22 +30,33 @@ const MenuRow = ({ label, icon, iconColor, iconBg, value, onPress, isLast, isDes
   >
     <View style={styles.menuRowLeft}>
       <View style={[styles.menuIconBg, { backgroundColor: iconBg || (iconColor + '18') }]}>
-        <Ionicons name={icon} size={18} color={iconColor || COLORS.primary} />
+        <Ionicons name={icon} size={20} color={iconColor || COLORS.primary} />
       </View>
-      <Text style={[styles.menuLabel, isDestructive && { color: '#EF4444' }]} numberOfLines={1}>
-        {label}
-      </Text>
+      <View style={styles.menuTextCol}>
+        <Text style={[styles.menuLabel, isDestructive && { color: '#EF4444' }]} numberOfLines={1}>
+          {label}
+        </Text>
+        {subtitle ? <Text style={styles.menuSubtitle} numberOfLines={1}>{subtitle}</Text> : null}
+      </View>
     </View>
     <View style={styles.menuRowRight}>
+      {badge ? (
+        <View style={[styles.badgePill, { backgroundColor: iconColor + '15', borderColor: iconColor + '30' }]}>
+          <Text style={[styles.badgePillText, { color: iconColor }]}>{badge}</Text>
+        </View>
+      ) : null}
       {value ? <Text style={styles.menuValue}>{value}</Text> : null}
       {onPress && <Ionicons name="chevron-forward" size={16} color="#94A3B8" style={{ marginLeft: 6 }} />}
     </View>
   </TouchableOpacity>
 );
 
-const SectionGroup = ({ title, children }) => (
+const SectionGroup = ({ title, subtitle, children }) => (
   <View style={styles.sectionGroupContainer}>
-    {title ? <Text style={styles.sectionGroupTitle}>{title}</Text> : null}
+    <View style={styles.sectionHeaderRow}>
+      {title ? <Text style={styles.sectionGroupTitle}>{title}</Text> : null}
+      {subtitle ? <Text style={styles.sectionGroupSubtitle}>{subtitle}</Text> : null}
+    </View>
     <View style={styles.sectionGroupCard}>
       {children}
     </View>
@@ -59,10 +71,13 @@ export default function ProfileScreen({ navigation }) {
   const [semesterNum, setSemesterNum] = useState('Not Set');
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(false);
+  const [socialLinks, setSocialLinks] = useState([]);
+  const [loadingLinks, setLoadingLinks] = useState(true);
 
   useEffect(() => {
     if (isFocused) {
       loadProfileData();
+      loadLinks();
     }
   }, [isFocused]);
 
@@ -96,25 +111,70 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const loadLinks = async () => {
+    try {
+      setLoadingLinks(true);
+      const links = await getSocialLinks();
+      setSocialLinks(links || []);
+    } catch (err) {
+      console.log('Error loading social links:', err);
+    } finally {
+      setLoadingLinks(false);
+    }
+  };
+
   const handleLogin = async () => {
     setLoadingAuth(true);
     try {
-      await performGoogleLogin();
+      const success = await performGoogleLogin();
+      if (success) {
+        Toast.show({ type: 'success', title: 'Welcome Back!', message: 'You have signed in successfully.' });
+      }
+    } catch (error) {
+      Toast.show({ type: 'error', title: 'Sign In Failed', message: error.message || 'Could not sign in with Google.' });
     } finally {
       setLoadingAuth(false);
     }
   };
 
+  const onSignOut = async () => {
+    try {
+      await handleLogout();
+      Toast.show({ type: 'info', title: 'Signed Out', message: 'You have logged out of your academic account.' });
+    } catch (error) {
+      Toast.show({ type: 'error', title: 'Error', message: 'Failed to sign out.' });
+    }
+  };
+
   const openURL = (url) => {
-    Linking.openURL(url).catch(() => {});
+    if (!url) return;
+    Linking.openURL(url).catch(() => {
+      Toast.show({ type: 'error', title: 'Link Error', message: 'Unable to open external app or browser.' });
+    });
+  };
+
+  const getPlatformDetails = (platform) => {
+    switch (platform) {
+      case 'whatsapp':
+        return { icon: 'logo-whatsapp', color: '#10B981', bg: '#D1FAE5' };
+      case 'youtube':
+        return { icon: 'logo-youtube', color: '#EF4444', bg: '#FEE2E2' };
+      case 'instagram':
+        return { icon: 'logo-instagram', color: '#E1306C', bg: '#FCE7F3' };
+      default:
+        return { icon: 'share-social', color: '#6366F1', bg: '#E0E7FF' };
+    }
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       
-      {/* Top Header matching HomeScreen */}
+      {/* Top Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <View>
+          <Text style={styles.headerTitle}>Academic Profile</Text>
+          <Text style={styles.headerSubtext}>Personalize your campus setup & resources</Text>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
             <Ionicons name="notifications-outline" size={22} color="#1E293B" />
@@ -138,15 +198,15 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.heroDetails}>
               <Text style={styles.heroName} numberOfLines={1}>
-                {user ? (user.user_metadata?.full_name || 'Student') : 'Guest Student'}
+                {user ? (user.user_metadata?.full_name || 'Student') : 'Campus Student'}
               </Text>
-              <Text style={styles.heroSubtext} numberOfLines={1}>
-                {user ? user.email : 'Login to sync resources & orders'}
+              <Text style={styles.heroEmail} numberOfLines={1}>
+                {user ? user.email : 'Sign in to cloud-sync study progress'}
               </Text>
               
               <View style={styles.statusBadge}>
                 <Ionicons name="shield-checkmark" size={14} color="#059669" />
-                <Text style={styles.statusBadgeText}>Verified Academic Profile</Text>
+                <Text style={styles.statusBadgeText}>Verified College Hub Member</Text>
               </View>
             </View>
           </View>
@@ -166,13 +226,14 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {/* Academic Information */}
-        <SectionGroup title="ACADEMIC INFORMATION">
+        <SectionGroup title="ACADEMIC SETUP" subtitle="Customizes your home feed">
           <MenuRow label="Course Degree" icon="school" iconColor="#3B82F6" value="B.Tech" onPress={() => navigation.navigate('AcademicSetup')} />
           <MenuRow label="Enrolled Branch" icon="business" iconColor="#F97316" value={branchName} onPress={() => navigation.navigate('AcademicSetup')} />
           <MenuRow label="Current Semester" icon="calendar" iconColor="#10B981" value={`Semester ${semesterNum}`} onPress={() => navigation.navigate('AcademicSetup')} />
           <MenuRow 
-            label="Change Academic Setup" 
-            icon="create" 
+            label="Change Branch & Semester" 
+            subtitle="Switch subject syllabus instantly"
+            icon="swap-horizontal" 
             iconColor={COLORS.primary} 
             iconBg="#FFF7ED"
             onPress={() => navigation.navigate('AcademicSetup')}
@@ -181,32 +242,57 @@ export default function ProfileScreen({ navigation }) {
         </SectionGroup>
 
         {/* My Resources */}
-        <SectionGroup title="MY RESOURCES & ORDERS">
-          <MenuRow label="My Orders" icon="cart" iconColor="#8B5CF6" onPress={() => navigation.navigate('MyOrders')} />
-          <MenuRow label="Saved Notes & PYQs" icon="bookmark" iconColor="#EC4899" onPress={() => navigation.navigate('SavedResources')} isLast />
+        <SectionGroup title="STUDY MATERIAL & ORDERS">
+          <MenuRow label="My Orders & Status" subtitle="Track marketplace & assignment orders" icon="cart" iconColor="#8B5CF6" onPress={() => navigation.navigate('MyOrders')} />
+          <MenuRow label="Saved Notes & PYQs" subtitle="Quick offline bookmarked study files" icon="bookmark" iconColor="#EC4899" onPress={() => navigation.navigate('SavedResources')} isLast />
         </SectionGroup>
 
-        {/* Community & Support */}
-        <SectionGroup title="COMMUNITY & SUPPORT">
-          <MenuRow label="Join WhatsApp Community" icon="logo-whatsapp" iconColor="#10B981" onPress={() => openURL('https://chat.whatsapp.com')} />
-          <MenuRow label="Subscribe on YouTube" icon="logo-youtube" iconColor="#EF4444" onPress={() => openURL('https://youtube.com')} />
-          <MenuRow label="Follow on Instagram" icon="logo-instagram" iconColor="#E1306C" onPress={() => openURL('https://instagram.com')} />
-          <MenuRow label="Help & FAQs" icon="help-circle" iconColor="#6366F1" onPress={() => navigation.navigate('Support', { section: 'FAQ' })} isLast />
+        {/* Dynamic Communities & Social Links */}
+        <SectionGroup title="COMMUNITY NETWORKS" subtitle="Managed live from Admin Panel">
+          {loadingLinks ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            </View>
+          ) : socialLinks.length > 0 ? (
+            socialLinks.map((item, idx) => {
+              const platformStyle = getPlatformDetails(item.platform);
+              return (
+                <MenuRow
+                  key={item.id || idx}
+                  label={item.name}
+                  subtitle={item.description || `Official ${item.platform.toUpperCase()} Hub`}
+                  icon={platformStyle.icon}
+                  iconColor={platformStyle.color}
+                  iconBg={platformStyle.bg}
+                  badge={item.subscriber_count}
+                  onPress={() => openURL(item.url)}
+                  isLast={idx === socialLinks.length - 1}
+                />
+              );
+            })
+          ) : (
+            <>
+              <MenuRow label="Campus WhatsApp Community" subtitle="Official student chat & placement alerts" icon="logo-whatsapp" iconColor="#10B981" badge="850+ Members" onPress={() => openURL('https://chat.whatsapp.com')} />
+              <MenuRow label="Campus Ninja YouTube" subtitle="Placement preparation & lecture roadmaps" icon="logo-youtube" iconColor="#EF4444" badge="15.2K Subs" onPress={() => openURL('https://youtube.com')} />
+              <MenuRow label="Campus Ninja Instagram" subtitle="Campus news, memes & event highlights" icon="logo-instagram" iconColor="#E1306C" badge="18.5K Followers" onPress={() => openURL('https://instagram.com')} isLast />
+            </>
+          )}
         </SectionGroup>
 
-        {/* About App */}
-        <SectionGroup title="ABOUT CAMPUS NINJA">
-          <MenuRow label="Privacy Policy" icon="shield" iconColor="#64748B" onPress={() => navigation.navigate('Support', { section: 'Privacy' })} />
+        {/* Support & Legal */}
+        <SectionGroup title="HELP & LEGAL">
+          <MenuRow label="Help Center & FAQs" icon="help-circle" iconColor="#6366F1" onPress={() => navigation.navigate('Support', { section: 'FAQ' })} />
+          <MenuRow label="Privacy Policy" icon="shield-checkmark" iconColor="#64748B" onPress={() => navigation.navigate('Support', { section: 'Privacy' })} />
           <MenuRow label="Terms of Service" icon="document-text" iconColor="#64748B" onPress={() => navigation.navigate('Support', { section: 'Terms' })} />
-          <MenuRow label="App Version" icon="information-circle" iconColor="#94A3B8" value="v1.0.0" isLast />
+          <MenuRow label="App Version" subtitle="Production Build" icon="information-circle" iconColor="#94A3B8" value="v2.4.0 (Latest)" isLast />
         </SectionGroup>
 
         {/* Logout */}
         {user && (
           <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.logoutButton} onPress={onSignOut} activeOpacity={0.8}>
               <Ionicons name="log-out-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
-              <Text style={styles.logoutText}>Sign Out</Text>
+              <Text style={styles.logoutText}>Sign Out of Academic Account</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -219,34 +305,45 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Matching HomeScreen
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 14,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.5,
+  },
+  headerSubtext: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   notificationBadge: {
     position: 'absolute',
@@ -264,13 +361,13 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     marginHorizontal: 16,
-    marginTop: 6,
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 22,
     borderRadius: 24,
     backgroundColor: '#FFFFFF',
     padding: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
@@ -288,22 +385,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2.5,
     borderColor: COLORS.primary,
     marginRight: 16,
   },
   avatarPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: '#FFF7ED',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#FFEDD5',
   },
   heroDetails: {
@@ -313,9 +410,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  heroSubtext: {
+  heroEmail: {
     fontSize: 13,
     color: '#64748B',
     marginBottom: 10,
@@ -342,7 +439,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0F172A',
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     marginTop: 18,
   },
   googleButtonText: {
@@ -352,21 +449,31 @@ const styles = StyleSheet.create({
   },
   sectionGroupContainer: {
     marginHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 22,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
   sectionGroupTitle: {
     fontSize: 12,
     fontWeight: '800',
     color: '#64748B',
-    marginBottom: 8,
     letterSpacing: 0.8,
-    paddingLeft: 4,
+  },
+  sectionGroupSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   sectionGroupCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
     ...Platform.select({
       ios: {
@@ -384,10 +491,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 15,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F1F5F9',
   },
   menuRowLast: {
     borderBottomWidth: 0,
@@ -398,22 +505,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
-  menuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
+  menuTextCol: {
     flex: 1,
+  },
+  menuLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  menuSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
   menuRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  badgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  badgePillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   menuValue: {
     fontSize: 13,
@@ -425,7 +550,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FEF2F2',
-    paddingVertical: 14,
+    paddingVertical: 15,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#FEE2E2',

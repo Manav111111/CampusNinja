@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -9,18 +9,22 @@ import {
   Alert 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCart } from '../context/CartContext';
 import { getDeliverySettings } from '../services/supabase';
+import { Toast } from '../context/ToastContext';
 
 export default function CartScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { cartItems, updateQuantity, removeFromCart, getSubtotal } = useCart();
   const [deliverySettings, setDeliverySettings] = useState({ deliveryFee: 49, freeDeliveryThreshold: 499 });
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchSettings();
+    }, [])
+  );
 
   const fetchSettings = async () => {
     const settings = await getDeliverySettings();
@@ -34,7 +38,7 @@ export default function CartScreen({ navigation }) {
 
   const handleProceedToCheckout = () => {
     if (cartItems.length === 0) {
-      Alert.alert('Cart Empty', 'Please add items to your cart before proceeding.');
+      Toast.show({ type: 'warning', title: 'Cart Empty', message: 'Please add items to your cart before proceeding.' });
       return;
     }
     // Pass cart items summary to OrderRequestScreen

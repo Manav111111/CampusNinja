@@ -282,8 +282,8 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity onPress={() => navigation.navigate('SubjectDetail', { subject: item })} activeOpacity={0.8}>
                 <SubjectCard 
                   title={item.title || item.name} 
-                  iconName={item.icon || item.icon_name || 'book-outline'} 
-                  iconColor={item.color || item.theme_color || '#8B5CF6'}
+                  counts={item.counts}
+                  subject={item}
                 />
               </TouchableOpacity>
             )}

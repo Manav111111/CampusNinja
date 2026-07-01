@@ -18,6 +18,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { supabase, createOrder, uploadOrderFile } from '../services/supabase';
 import { performGoogleLogin, getCurrentSession } from '../services/auth';
 import { useCart } from '../context/CartContext';
+import { Toast } from '../context/ToastContext';
 
 const StepIndicator = ({ steps, currentStepIndex }) => (
   <View style={styles.stepIndicatorContainer}>
@@ -139,18 +140,18 @@ export default function OrderRequestScreen({ route, navigation }) {
       }
     } catch (error) {
       console.error('Document picker error:', error);
-      Alert.alert('Error', 'Failed to pick document or image.');
+      Toast.show({ type: 'error', title: 'Error', message: 'Failed to pick document or image.' });
     }
   };
 
   const handleNext = () => {
     if (activeStepId === 'upload') {
       if (!selectedFile) {
-        Alert.alert('Upload Required', 'Please upload your product image or assignment document before continuing.');
+        Toast.show({ type: 'warning', title: 'Upload Required', message: 'Please upload your product image or assignment document before continuing.' });
         return;
       }
       if (!instructions.trim()) {
-        Alert.alert('Instructions Required', 'Please enter instructions or details for your uploaded file.');
+        Toast.show({ type: 'warning', title: 'Instructions Required', message: 'Please enter instructions or details for your uploaded file.' });
         return;
       }
       if (!user) {
@@ -160,11 +161,11 @@ export default function OrderRequestScreen({ route, navigation }) {
       }
     } else if (activeStepId === 'details') {
       if (!name.trim() || !phone.trim() || !college.trim() || !address.trim()) {
-        Alert.alert('Required Fields', 'Please fill in Name, WhatsApp Number, College, and Delivery Address.');
+        Toast.show({ type: 'warning', title: 'Required Fields', message: 'Please fill in Name, WhatsApp Number, College, and Delivery Address.' });
         return;
       }
       if (phone.trim().length < 10) {
-        Alert.alert('Invalid Phone', 'Please enter a valid 10-digit WhatsApp number.');
+        Toast.show({ type: 'warning', title: 'Invalid Phone', message: 'Please enter a valid 10-digit WhatsApp number.' });
         return;
       }
       if (!user) {
@@ -174,7 +175,7 @@ export default function OrderRequestScreen({ route, navigation }) {
       }
     } else if (activeStepId === 'login') {
       if (!user) {
-        Alert.alert('Sign In Required', 'Please sign in with Google to proceed.');
+        Toast.show({ type: 'warning', title: 'Sign In Required', message: 'Please sign in with Google to proceed.' });
       }
     }
   };
@@ -211,7 +212,7 @@ export default function OrderRequestScreen({ route, navigation }) {
       const session = await getCurrentSession();
       const currentUser = user || session?.user;
       if (!currentUser) {
-        Alert.alert('Sign In Required', 'Please sign in with Google to place your order.');
+        Toast.show({ type: 'warning', title: 'Sign In Required', message: 'Please sign in with Google to place your order.' });
         setActiveStepId('login');
         return;
       }
@@ -222,7 +223,7 @@ export default function OrderRequestScreen({ route, navigation }) {
           fileUrl = await uploadOrderFile(selectedFile.uri, selectedFile.name);
         } catch (uploadError) {
           console.error('File upload failed:', uploadError);
-          Alert.alert('Upload Warning', 'File could not be uploaded, but your order will still be submitted.');
+          Toast.show({ type: 'warning', title: 'Upload Warning', message: 'File could not be uploaded, but your order will still be submitted.' });
         }
       }
 
@@ -261,15 +262,21 @@ export default function OrderRequestScreen({ route, navigation }) {
         });
       }
 
-      Alert.alert(
-        '🎉 Order Placed Successfully!',
-        'We have received your order request. A CampusNinja coordinator will reach out to you on WhatsApp shortly.\n\nPayment Method: Cash on Delivery',
-        [{ text: 'Go to Home', onPress: () => navigation.navigate('MainApp') }]
-      );
+      Toast.show({
+        type: 'success',
+        title: '🎉 Order Placed Successfully!',
+        message: 'We received your order! A CampusNinja coordinator will reach out via WhatsApp shortly.',
+        actionText: 'Home',
+        onAction: () => navigation.navigate('MainApp'),
+        duration: 4000
+      });
+      setTimeout(() => {
+        navigation.navigate('MainApp');
+      }, 2000);
 
     } catch (error) {
       console.error('Order submission error:', error);
-      Alert.alert('Order Error', 'Failed to submit order. Please try again.');
+      Toast.show({ type: 'error', title: 'Order Error', message: 'Failed to submit order. Please try again.' });
     } finally {
       setLoading(false);
     }

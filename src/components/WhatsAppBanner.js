@@ -1,9 +1,24 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
+import { getSocialLinks } from '../services/supabase';
 
 export default function WhatsAppBanner() {
+  const [waLink, setWaLink] = useState('https://chat.whatsapp.com');
+
+  useEffect(() => {
+    getSocialLinks('whatsapp').then((links) => {
+      if (links && links.length > 0) {
+        setWaLink(links[0].url);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handlePress = () => {
+    Linking.openURL(waLink).catch(() => {});
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
@@ -13,7 +28,7 @@ export default function WhatsAppBanner() {
         <Text style={styles.title}>Join Campus Ninja WhatsApp Community</Text>
         <Text style={styles.subtitle}>Get important updates, notes, PYQs and more.</Text>
       </View>
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity style={styles.button} onPress={handlePress} activeOpacity={0.8}>
         <Text style={styles.buttonText}>Join Now</Text>
       </TouchableOpacity>
     </View>

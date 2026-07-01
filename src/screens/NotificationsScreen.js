@@ -15,9 +15,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/colors';
 import { supabase } from '../services/supabase';
+import { getInstallTimestamp } from '../services/storage';
+import NotificationModal from '../components/NotificationModal';
 
 export default function NotificationsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const [selectedNotif, setSelectedNotif] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [readIds, setReadIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -35,17 +38,22 @@ export default function NotificationsScreen({ navigation }) {
 
       const branchId = await AsyncStorage.getItem('userBranchId');
       const semesterId = await AsyncStorage.getItem('userSemesterId');
+      const installTs = await getInstallTimestamp();
 
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .gte('created_at', installTs)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ Error fetching notifications:', error.message);
       } else if (data) {
+        const installTime = new Date(installTs).getTime();
         // Filter notifications applicable to user
         const applicable = data.filter((item) => {
+          const itemTime = new Date(item.created_at).getTime();
+          if (itemTime < installTime) return false;
           const matchBranch = !item.target_branch_id || item.target_branch_id === branchId;
           const matchSemester = !item.target_semester_id || item.target_semester_id === semesterId;
           return matchBranch && matchSemester;
@@ -112,7 +120,7 @@ export default function NotificationsScreen({ navigation }) {
     setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, unread: false } : n)));
     await AsyncStorage.setItem('readNotificationIds', JSON.stringify(Array.from(newReads)));
 
-    Alert.alert(item.title, item.message);
+    setSelectedNotif(item);
   };
 
   const renderItem = ({ item }) => (
@@ -183,6 +191,12 @@ export default function NotificationsScreen({ navigation }) {
           }
         />
       )}
+
+      <NotificationModal
+        visible={!!selectedNotif}
+        notification={selectedNotif}
+        onClose={() => setSelectedNotif(null)}
+      />
     </View>
   );
 }

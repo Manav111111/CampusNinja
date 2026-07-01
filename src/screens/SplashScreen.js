@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isOnboardingComplete } from '../services/storage';
+import { isOnboardingComplete, getInstallTimestamp } from '../services/storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,6 +32,7 @@ export default function SplashScreen({ navigation }) {
     let mounted = true;
 
     const getNextRoute = async () => {
+      await getInstallTimestamp(); // Initialize timestamp immediately upon first boot
       const [onboardingComplete, branchId, semesterId] = await Promise.all([
         isOnboardingComplete(),
         AsyncStorage.getItem('userBranchId'),
@@ -78,7 +79,7 @@ export default function SplashScreen({ navigation }) {
         
         {/* New Splash Icon Image */}
         <View style={styles.logoContainer}>
-          <Image source={require('../../assets/splashicon.png')} style={styles.logoImage} />
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} />
         </View>
 
         {/* Brand Name */}

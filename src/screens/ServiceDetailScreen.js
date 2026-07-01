@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useCart } from '../context/CartContext';
 import { getMarketplaceServices, getDeliverySettings } from '../services/supabase';
+import { Toast } from '../context/ToastContext';
 
 const { width } = Dimensions.get('window');
 
@@ -46,11 +47,18 @@ export default function ServiceDetailScreen({ route, navigation }) {
 
   const handleAddToCart = () => {
     addToCart(service, 1);
-    Alert.alert('Added to Cart 🛒', `${service.title || service.name} has been added to your shopping cart.`);
+    Toast.show({
+      type: 'success',
+      title: 'Added to Cart',
+      message: `${service.title || service.name} added to your cart.`,
+      actionText: 'View Cart',
+      onAction: () => navigation.navigate('Cart'),
+    });
   };
 
   const handleBuyNow = () => {
-    navigation.navigate('OrderRequest', { service });
+    addToCart(service, 1);
+    navigation.navigate('Cart');
   };
 
   const price = service.price || service.original_price || 99;

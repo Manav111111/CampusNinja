@@ -83,7 +83,7 @@ export const getSubjects = async (branchId, semesterId) => {
     return [];
   }
 
-  const { data, error } = await supabase
+  const { data: subjects, error } = await supabase
     .from('subjects')
     .select('*')
     .eq('branch_id', branchId)
@@ -95,7 +95,64 @@ export const getSubjects = async (branchId, semesterId) => {
     console.error('Error fetching subjects:', error);
     throw error;
   }
-  return data;
+
+  if (!subjects || subjects.length === 0) return [];
+
+  try {
+    const subjectNames = subjects.map(s => (s.name || s.title || '').trim()).filter(Boolean);
+    if (subjectNames.length > 0) {
+      const { data: matchingSubs } = await supabase
+        .from('subjects')
+        .select('id, name')
+        .in('name', subjectNames);
+
+      if (matchingSubs && matchingSubs.length > 0) {
+        const subIdToName = {};
+        matchingSubs.forEach(m => {
+          if (m.name) subIdToName[m.id] = m.name.trim().toLowerCase();
+        });
+        const allMatchingIds = matchingSubs.map(m => m.id);
+
+        const { data: resources } = await supabase
+          .from('resources')
+          .select('subject_id, type')
+          .in('subject_id', allMatchingIds)
+          .eq('is_active', true);
+
+        const countsByName = {};
+        if (resources) {
+          resources.forEach(r => {
+            const nameKey = subIdToName[r.subject_id];
+            if (nameKey) {
+              if (!countsByName[nameKey]) {
+                countsByName[nameKey] = { total: 0, notes: 0, pyqs: 0, videos: 0 };
+              }
+              countsByName[nameKey].total += 1;
+              const t = (r.type || '').toLowerCase();
+              if (t === 'notes' || t === 'note') countsByName[nameKey].notes += 1;
+              else if (t === 'pyqs' || t === 'pyq') countsByName[nameKey].pyqs += 1;
+              else if (t === 'video' || t === 'videos') countsByName[nameKey].videos += 1;
+            }
+          });
+        }
+
+        return subjects.map(s => {
+          const key = (s.name || s.title || '').trim().toLowerCase();
+          return {
+            ...s,
+            counts: countsByName[key] || { total: 0, notes: 0, pyqs: 0, videos: 0 }
+          };
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Could not fetch resource counts for subjects:', err);
+  }
+
+  return subjects.map(s => ({
+    ...s,
+    counts: { total: 0, notes: 0, pyqs: 0, videos: 0 }
+  }));
 };
 
 /**
@@ -159,12 +216,11 @@ export const getResources = async (subjectId) => {
     .single();
 
   let subjectIds = [subjectId];
-  if (currentSub) {
+  if (currentSub && currentSub.name) {
     const { data: matchingSubs } = await supabase
       .from('subjects')
       .select('id')
-      .eq('name', currentSub.name)
-      .eq('semester_id', currentSub.semester_id);
+      .ilike('name', currentSub.name.trim());
 
     if (matchingSubs && matchingSubs.length > 0) {
       subjectIds = matchingSubs.map(s => s.id);
@@ -213,12 +269,11 @@ export const getResourcesByType = async (subjectId, type) => {
     .single();
 
   let subjectIds = [subjectId];
-  if (currentSub) {
+  if (currentSub && currentSub.name) {
     const { data: matchingSubs } = await supabase
       .from('subjects')
       .select('id')
-      .eq('name', currentSub.name)
-      .eq('semester_id', currentSub.semester_id);
+      .ilike('name', currentSub.name.trim());
 
     if (matchingSubs && matchingSubs.length > 0) {
       subjectIds = matchingSubs.map(s => s.id);
@@ -500,6 +555,30 @@ export const getCommunityLinks = async () => {
     throw error;
   }
   return data;
+};
+
+/**
+ * Fetch all active social links (or filter by platform: 'whatsapp', 'youtube', 'instagram').
+ * @param {string|null} platform
+ * @returns {Promise<Array>} List of social links
+ */
+export const getSocialLinks = async (platform = null) => {
+  let query = supabase
+    .from('social_links')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if (platform) {
+    query = query.eq('platform', platform);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error fetching social links:', error);
+    return [];
+  }
+  return data || [];
 };
 
 

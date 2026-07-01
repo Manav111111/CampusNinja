@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSkillResources } from '../services/supabase';
+import { Toast } from '../context/ToastContext';
 
 const tabs = [
   { id: 'roadmap', label: 'Roadmap', icon: 'map-outline' },
@@ -173,7 +174,7 @@ export default function SkillDetailScreen({ route, navigation }) {
 
   const handleResourcePress = async (item) => {
     if (!item.targetUrl) {
-      Alert.alert('No Link Available', 'This skill resource does not have an attached file or URL.');
+      Toast.show({ type: 'warning', title: 'No Link Available', message: 'This skill resource does not have an attached file or URL.' });
       return;
     }
     try {
@@ -183,21 +184,37 @@ export default function SkillDetailScreen({ route, navigation }) {
         await WebBrowser.openBrowserAsync(item.targetUrl);
       }
     } catch (e) {
-      Alert.alert('Error', 'Unable to open resource link.');
+      Toast.show({ type: 'error', title: 'Error', message: 'Unable to open resource link.' });
     }
   };
 
   const handleDownload = async (item) => {
     if (!item.targetUrl) {
-      Alert.alert('Download Error', 'No downloadable link available for this resource.');
+      Toast.show({ type: 'warning', title: 'Download Error', message: 'No downloadable link available for this resource.' });
       return;
     }
     setDownloadingItems(prev => ({ ...prev, [item.id]: true }));
     try {
-      await Linking.openURL(item.targetUrl);
+      let downloadUrl = item.targetUrl;
+      const driveMatch = downloadUrl.match(/(?:\/file\/d\/|id=)([a-zA-Z0-9_-]+)/);
+      if (driveMatch && driveMatch[1]) {
+        downloadUrl = `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+      } else if (downloadUrl.includes('/storage/v1/object/public/') && !downloadUrl.includes('download=')) {
+        const cleanTitle = (item.title || 'CampusNinja_Skill_Material').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filename = cleanTitle.toLowerCase().endsWith('.pdf') ? cleanTitle : `${cleanTitle}.pdf`;
+        const separator = downloadUrl.includes('?') ? '&' : '?';
+        downloadUrl = `${downloadUrl}${separator}download=${encodeURIComponent(filename)}`;
+      }
+
+      await Linking.openURL(downloadUrl);
       setDownloadedItems(prev => ({ ...prev, [item.id]: true }));
+      Toast.show({
+        type: 'success',
+        title: 'Download Started',
+        message: 'The file download has started directly to your phone storage (Downloads folder).'
+      });
     } catch (e) {
-      Alert.alert('Download Failed', 'Could not open download link.');
+      Toast.show({ type: 'error', title: 'Download Failed', message: 'Could not open download link.' });
     } finally {
       setDownloadingItems(prev => ({ ...prev, [item.id]: false }));
     }
